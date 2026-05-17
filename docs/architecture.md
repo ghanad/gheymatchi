@@ -16,6 +16,6 @@ The API service and worker service should be separate Go binaries. They can shar
 
 ## Current Phase Boundary
 
-Phase 3 adds the first runnable backend API service. The service is limited to process health and readiness checks, configuration loading, structured logs, and graceful shutdown.
+Phase 5 adds a focused product module under `backend/internal/product`. HTTP handlers parse requests and write responses, while validation and SQLite persistence live in the product package behind a store interface.
 
-Database access, product APIs, source tracking, price history, scraping, worker scheduling, frontend implementation, market rates, alerts, and notifications remain out of scope.
+Source tracking, price history, scraping, worker scheduling, frontend implementation, market rates, alerts, and notifications remain out of scope.
