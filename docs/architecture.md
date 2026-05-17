@@ -16,4 +16,6 @@ The API service and worker service should be separate Go binaries. They can shar
 
 ## Current Phase Boundary
 
-Phase 2 only creates the repository skeleton and initial documentation. Runtime services, Go modules, frontend scaffolding, migrations, and application logic are intentionally deferred.
+Phase 3 adds the first runnable backend API service. The service is limited to process health and readiness checks, configuration loading, structured logs, and graceful shutdown.
+
+Database access, product APIs, source tracking, price history, scraping, worker scheduling, frontend implementation, market rates, alerts, and notifications remain out of scope.

@@ -6,7 +6,7 @@ The MVP starts with a simple modular monolith: a Go backend, a separate Go worke
 
 ## Local Development Goal
 
-The project should run on a MacBook with simple local commands and Docker Compose once application services are introduced. Phase 2 only creates the repository skeleton and documentation; runnable backend and frontend services are intentionally deferred to later phases.
+The project should run on a MacBook with simple local commands and Docker Compose. The current backend API skeleton is intentionally small: it exposes health checks only and does not connect to a database yet.
 
 ## Initial Stack
 
@@ -18,22 +18,31 @@ The project should run on a MacBook with simple local commands and Docker Compos
 - Future database target: PostgreSQL
 - Local orchestration: Docker Compose when services exist
 
-## Planned Commands
+## Local Commands
 
-These commands are expected to exist in later phases:
+Run the API directly:
 
 ```sh
-docker compose up
+make api
 ```
 
-```sh
-go test ./...
-```
+Run backend tests:
 
 ```sh
-npm run dev
+make test
+```
+
+Run with Docker Compose:
+
+```sh
+make docker-up
 ```
 
 ## Current Phase
 
-Phase 2 creates only the repository structure and initial documentation placeholders. No backend application code, frontend application code, migrations, scraping, product CRUD, source tracking, price history, worker scheduler, market rates, alerts, or notifications are implemented yet.
+Phase 3 creates the minimal Go API service under `backend/`. It includes configuration loading from environment variables, structured logging, graceful shutdown, and these endpoints:
+
+- `GET /healthz`
+- `GET /readyz`
+
+No frontend application code, migrations, database connection, scraping, product CRUD, source tracking, price history, worker scheduler, market rates, alerts, or notifications are implemented yet.

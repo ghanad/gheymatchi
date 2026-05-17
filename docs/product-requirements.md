@@ -20,3 +20,4 @@ The MVP should stay local-first and small. SQLite is the local database for the 
 - Alert rules
 - Email or SMS notifications
 - Authentication
+- Database schema and migrations

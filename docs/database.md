@@ -12,4 +12,4 @@ GheymatChi uses SQLite for the local MVP. PostgreSQL is the future production da
 
 ## Current Phase Boundary
 
-No schema or migrations are implemented in Phase 2. The `backend/migrations` directory exists as a placeholder for Phase 3 or later work.
+No schema, migrations, or database connection are implemented in Phase 3. The `backend/migrations` directory remains a placeholder for the SQLite setup phase.
