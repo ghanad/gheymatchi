@@ -8,6 +8,7 @@ import (
 func TestLoadUsesDefaults(t *testing.T) {
 	t.Setenv("APP_ENV", "")
 	t.Setenv("HTTP_ADDR", "")
+	t.Setenv("DB_PATH", "")
 	t.Setenv("HTTP_READ_TIMEOUT", "")
 	t.Setenv("HTTP_WRITE_TIMEOUT", "")
 	t.Setenv("HTTP_IDLE_TIMEOUT", "")
@@ -23,6 +24,9 @@ func TestLoadUsesDefaults(t *testing.T) {
 	}
 	if cfg.HTTPAddr != ":8080" {
 		t.Fatalf("HTTPAddr = %q, want :8080", cfg.HTTPAddr)
+	}
+	if cfg.DatabasePath != "data/gheymatchi.db" {
+		t.Fatalf("DatabasePath = %q, want data/gheymatchi.db", cfg.DatabasePath)
 	}
 	if cfg.ShutdownTimeout != 10*time.Second {
 		t.Fatalf("ShutdownTimeout = %s, want 10s", cfg.ShutdownTimeout)

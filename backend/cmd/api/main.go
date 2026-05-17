@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"gheymatchi/backend/internal/config"
+	"gheymatchi/backend/internal/db"
 )
 
 func main() {
@@ -22,16 +24,27 @@ func main() {
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
-	if err := run(cfg, logger); err != nil {
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ReadTimeout)
+	defer cancel()
+
+	database, err := db.Open(ctx, cfg.DatabasePath)
+	if err != nil {
+		logger.Error("open database", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer database.Close()
+
+	if err := run(cfg, logger, database); err != nil {
 		logger.Error("api stopped", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 }
 
-func run(cfg config.Config, logger *slog.Logger) error {
+func run(cfg config.Config, logger *slog.Logger, database *sql.DB) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", statusHandler("ok"))
-	mux.HandleFunc("/readyz", statusHandler("ready"))
+	mux.HandleFunc("/readyz", readinessHandler(database))
 
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr,
@@ -79,6 +92,26 @@ func statusHandler(status string) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, map[string]string{"status": status})
+	}
+}
+
+func readinessHandler(database *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", http.MethodGet)
+			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		defer cancel()
+
+		if err := database.PingContext(ctx); err != nil {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "not_ready"})
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	}
 }
 

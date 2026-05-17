@@ -1,7 +1,10 @@
-.PHONY: api test docker-up docker-down
+.PHONY: api migrate test docker-up docker-down
 
 api:
-	cd backend && go run ./cmd/api
+	cd backend && DB_PATH=../data/gheymatchi.db go run ./cmd/api
+
+migrate:
+	cd backend && DB_PATH=../data/gheymatchi.db go run ./cmd/migrate
 
 test:
 	cd backend && go test ./...

@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Env             string
 	HTTPAddr        string
+	DatabasePath    string
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	IdleTimeout     time.Duration
@@ -19,6 +20,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		Env:             getenv("APP_ENV", "local"),
 		HTTPAddr:        getenv("HTTP_ADDR", ":8080"),
+		DatabasePath:    getenv("DB_PATH", "data/gheymatchi.db"),
 		ReadTimeout:     5 * time.Second,
 		WriteTimeout:    10 * time.Second,
 		IdleTimeout:     60 * time.Second,

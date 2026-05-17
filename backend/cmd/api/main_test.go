@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
+
+	"gheymatchi/backend/internal/db"
 )
 
 func TestStatusHandlerReturnsJSON(t *testing.T) {
@@ -34,5 +38,25 @@ func TestStatusHandlerRejectsNonGet(t *testing.T) {
 	}
 	if got := rec.Header().Get("Allow"); got != http.MethodGet {
 		t.Fatalf("Allow = %q, want GET", got)
+	}
+}
+
+func TestReadinessHandlerChecksDatabase(t *testing.T) {
+	database, err := db.Open(context.Background(), filepath.Join(t.TempDir(), "ready.db"))
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer database.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+
+	readinessHandler(database).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if got := rec.Body.String(); got != "{\"status\":\"ready\"}\n" {
+		t.Fatalf("body = %q, want readiness response", got)
 	}
 }

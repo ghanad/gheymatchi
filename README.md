@@ -6,7 +6,7 @@ The MVP starts with a simple modular monolith: a Go backend, a separate Go worke
 
 ## Local Development Goal
 
-The project should run on a MacBook with simple local commands and Docker Compose. The current backend API skeleton is intentionally small: it exposes health checks only and does not connect to a database yet.
+The project should run on a MacBook with simple local commands and Docker Compose. The current backend API skeleton is intentionally small: it exposes health checks and connects to a local SQLite database for readiness checks.
 
 ## Initial Stack
 
@@ -23,7 +23,14 @@ The project should run on a MacBook with simple local commands and Docker Compos
 Run the API directly:
 
 ```sh
+make migrate
 make api
+```
+
+Run database migrations:
+
+```sh
+make migrate
 ```
 
 Run backend tests:
@@ -35,14 +42,15 @@ make test
 Run with Docker Compose:
 
 ```sh
+docker compose run --rm migrate
 make docker-up
 ```
 
 ## Current Phase
 
-Phase 3 creates the minimal Go API service under `backend/`. It includes configuration loading from environment variables, structured logging, graceful shutdown, and these endpoints:
+Phase 4 adds SQLite setup and migrations. It includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
 - `GET /healthz`
 - `GET /readyz`
 
-No frontend application code, migrations, database connection, scraping, product CRUD, source tracking, price history, worker scheduler, market rates, alerts, or notifications are implemented yet.
+No frontend application code, scraping, product CRUD API, source tracking API, price history API, worker scheduler, market-rate behavior, alert evaluation, or notification sending are implemented yet.
