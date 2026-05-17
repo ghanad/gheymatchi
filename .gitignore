@@ -1,3 +1,7 @@
 gheymatchi_llm_implementation_plan.md
 data/*.db
 data/*.db-*
+.cache/
+frontend/.next/
+frontend/node_modules/
+frontend/tsconfig.tsbuildinfo

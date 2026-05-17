@@ -2,17 +2,17 @@
 
 GheymatChi is a local-first web application for tracking product prices over time. Users will eventually add products from e-commerce websites, attach source URLs, review historical price changes, and compare prices against market rates such as USD and gold.
 
-The MVP starts with a simple modular monolith: a Go backend, a separate Go worker process, a Next.js + TypeScript frontend, and SQLite for local development. PostgreSQL is the planned production database target, so database code and schema decisions should keep that migration path in mind.
+The MVP starts with a simple modular monolith: a Go backend, a Next.js + TypeScript frontend, and SQLite for local development. PostgreSQL is the planned production database target, so database code and schema decisions should keep that migration path in mind.
 
 ## Local Development Goal
 
-The project should run on a MacBook with simple local commands and Docker Compose. The current backend API exposes health checks, connects to a local SQLite database for readiness checks, and provides product CRUD, product source URL management, and manual price history endpoints.
+The project should run on a MacBook with simple local commands and Docker Compose. The current backend API exposes health checks, connects to a local SQLite database for readiness checks, and provides product CRUD, product source URL management, and manual price history endpoints. The frontend provides the initial dashboard shell and placeholder pages.
 
 ## Initial Stack
 
 - Backend: Go
 - API routing: Go standard library or a small router in a later phase
-- Worker: separate Go process for scheduled price checks
+- Worker: planned separate Go process for scheduled price checks
 - Frontend: Next.js with TypeScript
 - Local MVP database: SQLite
 - Future database target: PostgreSQL
@@ -25,6 +25,14 @@ Run the API directly:
 ```sh
 make migrate
 make api
+```
+
+Run the frontend directly:
+
+```sh
+cd frontend
+npm install
+BACKEND_API_BASE_URL=http://localhost:8080 npm run dev
 ```
 
 Run database migrations:
@@ -48,7 +56,9 @@ make docker-up
 
 ## Current Phase
 
-Phase 7 adds manual price point recording. It includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
+Phase 8 adds the initial Next.js frontend dashboard shell. It includes navigation, placeholder pages for upcoming frontend areas, a small backend API client helper, and Docker Compose wiring for the frontend service.
+
+The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
 - `GET /healthz`
 - `GET /readyz`
@@ -64,4 +74,4 @@ Phase 7 adds manual price point recording. It includes configuration loading fro
 - `POST /api/products/{product_id}/sources/{source_id}/price-points`
 - `GET /api/products/{product_id}/price-points`
 
-No frontend application code, scraping, worker scheduler, market-rate behavior, alert evaluation, or notification sending are implemented yet.
+Product management UI, charts, scraping, worker scheduler, market-rate behavior, alert evaluation, and notification sending are not implemented yet.

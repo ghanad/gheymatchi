@@ -11,6 +11,16 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/data
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      BACKEND_API_BASE_URL: http://api:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
   migrate:
     build:
       context: .
