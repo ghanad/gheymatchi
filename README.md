@@ -6,7 +6,7 @@ The MVP starts with a simple modular monolith: a Go backend, a separate Go worke
 
 ## Local Development Goal
 
-The project should run on a MacBook with simple local commands and Docker Compose. The current backend API exposes health checks, connects to a local SQLite database for readiness checks, and provides product CRUD plus product source URL management endpoints.
+The project should run on a MacBook with simple local commands and Docker Compose. The current backend API exposes health checks, connects to a local SQLite database for readiness checks, and provides product CRUD, product source URL management, and manual price history endpoints.
 
 ## Initial Stack
 
@@ -48,7 +48,7 @@ make docker-up
 
 ## Current Phase
 
-Phase 6 adds product source URL management. It includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
+Phase 7 adds manual price point recording. It includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
 - `GET /healthz`
 - `GET /readyz`
@@ -61,5 +61,7 @@ Phase 6 adds product source URL management. It includes configuration loading fr
 - `GET /api/products/{product_id}/sources`
 - `PATCH /api/products/{product_id}/sources/{source_id}`
 - `DELETE /api/products/{product_id}/sources/{source_id}`
+- `POST /api/products/{product_id}/sources/{source_id}/price-points`
+- `GET /api/products/{product_id}/price-points`
 
-No frontend application code, scraping, price history API, worker scheduler, market-rate behavior, alert evaluation, or notification sending are implemented yet.
+No frontend application code, scraping, worker scheduler, market-rate behavior, alert evaluation, or notification sending are implemented yet.

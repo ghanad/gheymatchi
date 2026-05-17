@@ -50,3 +50,9 @@ Phase 5 uses the existing `products` table for local product CRUD. Product descr
 ## Product Source Storage
 
 Phase 6 uses the existing `product_sources` table for source URL management. Migration `002_product_sources_source_name.sql` renames the original placeholder `site_name` column to `source_name`. Each source belongs to one product, stores one absolute HTTP or HTTPS URL, includes a normalized source name, and can be activated or deactivated with `is_active`.
+
+## Price Point Storage
+
+Phase 7 uses `price_points` for manual price history recording. Migration `003_price_points_phase7.sql` reshapes the original placeholder table to store `product_id`, `product_source_id`, integer `price_irr`, `captured_at`, optional `raw_payload`, and `created_at`.
+
+Price history is queried by product and ordered by `captured_at` for charting. Price amounts are stored as integer IRR values, not floating point numbers.
