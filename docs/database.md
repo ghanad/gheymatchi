@@ -46,3 +46,7 @@ Common lookup indexes are included for product history by time, source crawl his
 ## Product Storage
 
 Phase 5 uses the existing `products` table for local product CRUD. Product descriptions are optional, `user_id` is nullable for the single local-development user assumption, and database access is isolated in `backend/internal/product`.
+
+## Product Source Storage
+
+Phase 6 uses the existing `product_sources` table for source URL management. Migration `002_product_sources_source_name.sql` renames the original placeholder `site_name` column to `source_name`. Each source belongs to one product, stores one absolute HTTP or HTTPS URL, includes a normalized source name, and can be activated or deactivated with `is_active`.

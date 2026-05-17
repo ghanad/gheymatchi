@@ -15,6 +15,7 @@ import (
 	"gheymatchi/backend/internal/config"
 	"gheymatchi/backend/internal/db"
 	"gheymatchi/backend/internal/product"
+	"gheymatchi/backend/internal/source"
 )
 
 func main() {
@@ -47,6 +48,7 @@ func run(cfg config.Config, logger *slog.Logger, database *sql.DB) error {
 	mux.HandleFunc("/healthz", statusHandler("ok"))
 	mux.HandleFunc("/readyz", readinessHandler(database))
 	product.NewHandler(product.NewSQLiteStore(database)).Register(mux)
+	source.NewHandler(source.NewSQLiteStore(database)).Register(mux)
 
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr,
