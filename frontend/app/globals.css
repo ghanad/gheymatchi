@@ -241,7 +241,8 @@ p {
 }
 
 input,
-select {
+select,
+textarea {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -251,8 +252,14 @@ select {
   padding: 9px 10px;
 }
 
+textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   border-color: var(--accent);
   outline: 2px solid #cfe9de;
 }
@@ -304,6 +311,26 @@ button:disabled {
   color: var(--danger);
 }
 
+.secondary-link-button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 750;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.back-link {
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 750;
+  width: fit-content;
+}
+
 .form-error {
   background: #ffe4e0;
   border: 1px solid #f2b8b2;
@@ -338,6 +365,62 @@ button:disabled {
   font-size: 14px;
 }
 
+.product-workspace {
+  display: grid;
+  gap: 16px;
+}
+
+.product-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+}
+
+.product-form,
+.product-list {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.product-form h2,
+.product-list h2 {
+  font-size: 18px;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.product-row {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto;
+  padding: 14px;
+}
+
+.source-row {
+  grid-template-columns: 1fr auto auto;
+}
+
+.product-row div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.product-row strong {
+  font-size: 15px;
+}
+
+.product-row span:not(.status-badge),
+.product-row a {
+  color: var(--muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   .topbar-inner {
     align-items: flex-start;
@@ -356,8 +439,11 @@ button:disabled {
   }
 
   .alert-grid,
+  .product-grid,
   .field-row,
-  .alert-row {
+  .alert-row,
+  .product-row,
+  .source-row {
     grid-template-columns: 1fr;
   }
 }

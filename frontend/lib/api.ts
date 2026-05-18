@@ -10,6 +10,27 @@ export type Product = {
   updated_at: string;
 };
 
+export type ProductInput = {
+  name: string;
+  description?: string;
+};
+
+export type ProductSource = {
+  id: string;
+  product_id: string;
+  url: string;
+  source_name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProductSourceInput = {
+  url: string;
+  source_name?: string;
+  is_active?: boolean;
+};
+
 export type Alert = {
   id: string;
   product_id: string;
@@ -59,6 +80,119 @@ export async function fetchProducts(): Promise<Product[]> {
 
   const body = (await response.json()) as { products: Product[] };
   return body.products;
+}
+
+export async function fetchProduct(productID: string): Promise<Product> {
+  const response = await fetch(`${apiBaseURL()}/api/products/${productID}`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Product request failed"));
+  }
+
+  return response.json() as Promise<Product>;
+}
+
+export async function createProduct(input: ProductInput): Promise<Product> {
+  const response = await fetch(`${apiBaseURL()}/api/products`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Create product failed"));
+  }
+
+  return response.json() as Promise<Product>;
+}
+
+export async function updateProduct(productID: string, input: Partial<ProductInput>): Promise<Product> {
+  const response = await fetch(`${apiBaseURL()}/api/products/${productID}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Update product failed"));
+  }
+
+  return response.json() as Promise<Product>;
+}
+
+export async function deleteProduct(productID: string): Promise<void> {
+  const response = await fetch(`${apiBaseURL()}/api/products/${productID}`, {
+    method: "DELETE"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Delete product failed"));
+  }
+}
+
+export async function fetchProductSources(productID: string): Promise<ProductSource[]> {
+  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/sources`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Source request failed"));
+  }
+
+  const body = (await response.json()) as { sources: ProductSource[] };
+  return body.sources;
+}
+
+export async function createProductSource(productID: string, input: ProductSourceInput): Promise<ProductSource> {
+  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/sources`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Create source failed"));
+  }
+
+  return response.json() as Promise<ProductSource>;
+}
+
+export async function updateProductSource(
+  productID: string,
+  sourceID: string,
+  input: Partial<ProductSourceInput>
+): Promise<ProductSource> {
+  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/sources/${sourceID}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Update source failed"));
+  }
+
+  return response.json() as Promise<ProductSource>;
+}
+
+export async function deleteProductSource(productID: string, sourceID: string): Promise<void> {
+  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/sources/${sourceID}`, {
+    method: "DELETE"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Delete source failed"));
+  }
 }
 
 export async function fetchProductAlerts(productID: string): Promise<Alert[]> {
