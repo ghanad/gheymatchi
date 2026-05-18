@@ -74,17 +74,20 @@ The frontend will be available at `http://localhost:3000`; the API listens on `h
 
 ## Docker Compose
 
-From a clean checkout, start the long-running services:
+Docker Compose is optional. The native `make api`, `make worker`, and `make frontend` workflow above remains the primary simple local development path.
+
+From a clean checkout, start the local stack:
 
 ```sh
 make docker-up
 ```
 
-`make docker-up` applies migrations before starting services. To add optional demo data first, run:
+This starts the API, worker, and frontend, and applies SQLite migrations before the API and worker start. The SQLite database is stored under `data/gheymatchi.db`, which is mounted into the containers so data persists across container restarts.
+
+To add optional demo data, run:
 
 ```sh
 make docker-seed
-make docker-up
 ```
 
 Stop the Compose services:
@@ -104,7 +107,7 @@ DB_PATH=../data/gheymatchi.db PRICE_FETCHER=digikala go run ./cmd/worker
 
 ## Current Phase
 
-Phase 19 improves local developer experience with documented setup, Makefile targets, example environment files, Docker Compose commands, and a local seed-data command.
+Phase 21 adds Docker Compose as an optional local stack while keeping native macOS development commands working.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 

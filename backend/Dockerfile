@@ -1,7 +1,8 @@
 FROM golang:1.22-alpine AS build
 
 WORKDIR /src/backend
-COPY backend/go.mod ./
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
 COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/gheymatchi-api ./cmd/api
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/gheymatchi-migrate ./cmd/migrate

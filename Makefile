@@ -27,10 +27,10 @@ frontend-install:
 docker-migrate:
 	docker compose run --rm migrate
 
-docker-seed:
+docker-seed: docker-migrate
 	docker compose run --rm seed
 
-docker-up: docker-migrate
+docker-up:
 	docker compose up --build
 
 docker-down:

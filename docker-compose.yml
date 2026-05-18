@@ -1,4 +1,15 @@
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["/usr/local/bin/gheymatchi-migrate"]
+    environment:
+      APP_ENV: local
+      DB_PATH: /data/gheymatchi.db
+    volumes:
+      - ./data:/data
+
   api:
     build:
       context: .
@@ -11,6 +22,14 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
   frontend:
     build:
       context: ./frontend
@@ -20,7 +39,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - api
+      api:
+        condition: service_started
   worker:
     build:
       context: .
@@ -32,19 +52,10 @@ services:
       WORKER_INTERVAL: 5m
       PRICE_FETCHER: mock
     depends_on:
-      - api
-    volumes:
-      - ./data:/data
-  migrate:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    command: ["/usr/local/bin/gheymatchi-migrate"]
-    environment:
-      APP_ENV: local
-      DB_PATH: /data/gheymatchi.db
-    profiles:
-      - tools
+      migrate:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
     volumes:
       - ./data:/data
   seed:
