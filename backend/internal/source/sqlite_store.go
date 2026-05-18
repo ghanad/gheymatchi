@@ -92,6 +92,32 @@ ORDER BY created_at DESC, id DESC`, productID)
 	return sources, nil
 }
 
+func (s *SQLiteStore) ListActive(ctx context.Context) ([]ProductSource, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, product_id, url, source_name, is_active, created_at, updated_at
+FROM product_sources
+WHERE is_active = 1
+ORDER BY updated_at ASC, id ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("list active product sources: %w", err)
+	}
+	defer rows.Close()
+
+	var sources []ProductSource
+	for rows.Next() {
+		productSource, err := scanProductSource(rows)
+		if err != nil {
+			return nil, err
+		}
+		sources = append(sources, productSource)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list active product sources rows: %w", err)
+	}
+
+	return sources, nil
+}
+
 func (s *SQLiteStore) Update(ctx context.Context, productID string, sourceID string, input UpdateInput) (ProductSource, error) {
 	normalized, err := NormalizeUpdate(input)
 	if err != nil {

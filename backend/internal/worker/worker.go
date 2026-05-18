@@ -1,0 +1,130 @@
+package worker
+
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"gheymatchi/backend/internal/crawl"
+	"gheymatchi/backend/internal/price"
+	"gheymatchi/backend/internal/source"
+)
+
+type SourceLister interface {
+	ListActive(ctx context.Context) ([]source.ProductSource, error)
+}
+
+type PriceStore interface {
+	Create(ctx context.Context, productID string, productSourceID string, input price.CreateInput) (price.PricePoint, error)
+}
+
+type CrawlStore interface {
+	Start(ctx context.Context, sourceID string) (crawl.Run, error)
+	Finish(ctx context.Context, id string, status string, errorMessage *string) error
+}
+
+type Runner struct {
+	sources SourceLister
+	prices  PriceStore
+	crawls  CrawlStore
+	fetcher price.Fetcher
+	logger  *slog.Logger
+}
+
+func NewRunner(sources SourceLister, prices PriceStore, crawls CrawlStore, fetcher price.Fetcher, logger *slog.Logger) Runner {
+	return Runner{
+		sources: sources,
+		prices:  prices,
+		crawls:  crawls,
+		fetcher: fetcher,
+		logger:  logger,
+	}
+}
+
+func (r Runner) RunOnce(ctx context.Context) error {
+	sources, err := r.sources.ListActive(ctx)
+	if err != nil {
+		return err
+	}
+
+	r.logger.Info("loaded active sources", slog.Int("count", len(sources)))
+	for _, productSource := range sources {
+		if err := r.checkSource(ctx, productSource); err != nil {
+			r.logger.Error(
+				"source check failed",
+				slog.String("source_id", productSource.ID),
+				slog.String("product_id", productSource.ProductID),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
+	return nil
+}
+
+func (r Runner) Run(ctx context.Context, interval time.Duration) error {
+	if interval <= 0 {
+		interval = 5 * time.Minute
+	}
+
+	if err := r.RunOnce(ctx); err != nil {
+		r.logger.Error("worker tick failed", slog.String("error", err.Error()))
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if err := r.RunOnce(ctx); err != nil {
+				r.logger.Error("worker tick failed", slog.String("error", err.Error()))
+			}
+		}
+	}
+}
+
+func (r Runner) checkSource(ctx context.Context, productSource source.ProductSource) error {
+	r.logger.Info(
+		"checking source",
+		slog.String("source_id", productSource.ID),
+		slog.String("product_id", productSource.ProductID),
+		slog.String("url", productSource.URL),
+	)
+
+	run, err := r.crawls.Start(ctx, productSource.ID)
+	if err != nil {
+		return err
+	}
+
+	result, err := r.fetcher.Fetch(ctx, productSource)
+	if err != nil {
+		message := err.Error()
+		_ = r.crawls.Finish(ctx, run.ID, crawl.StatusFailed, &message)
+		return err
+	}
+
+	if _, err := r.prices.Create(ctx, productSource.ProductID, productSource.ID, price.CreateInput{
+		PriceIRR:   result.PriceIRR,
+		CapturedAt: result.CapturedAt,
+		RawPayload: result.RawPayload,
+	}); err != nil {
+		message := err.Error()
+		_ = r.crawls.Finish(ctx, run.ID, crawl.StatusFailed, &message)
+		return err
+	}
+
+	if err := r.crawls.Finish(ctx, run.ID, crawl.StatusSucceeded, nil); err != nil {
+		return err
+	}
+
+	r.logger.Info(
+		"source check succeeded",
+		slog.String("source_id", productSource.ID),
+		slog.String("product_id", productSource.ProductID),
+		slog.Int64("price_irr", result.PriceIRR),
+	)
+	return nil
+}

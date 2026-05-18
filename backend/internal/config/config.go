@@ -10,6 +10,7 @@ type Config struct {
 	Env             string
 	HTTPAddr        string
 	DatabasePath    string
+	WorkerInterval  time.Duration
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	IdleTimeout     time.Duration
@@ -21,6 +22,7 @@ func Load() (Config, error) {
 		Env:             getenv("APP_ENV", "local"),
 		HTTPAddr:        getenv("HTTP_ADDR", ":8080"),
 		DatabasePath:    getenv("DB_PATH", "data/gheymatchi.db"),
+		WorkerInterval:  5 * time.Minute,
 		ReadTimeout:     5 * time.Second,
 		WriteTimeout:    10 * time.Second,
 		IdleTimeout:     60 * time.Second,
@@ -28,6 +30,9 @@ func Load() (Config, error) {
 	}
 
 	var err error
+	if cfg.WorkerInterval, err = durationFromEnv("WORKER_INTERVAL", cfg.WorkerInterval); err != nil {
+		return Config{}, err
+	}
 	if cfg.ReadTimeout, err = durationFromEnv("HTTP_READ_TIMEOUT", cfg.ReadTimeout); err != nil {
 		return Config{}, err
 	}

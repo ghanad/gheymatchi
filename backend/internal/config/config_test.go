@@ -9,6 +9,7 @@ func TestLoadUsesDefaults(t *testing.T) {
 	t.Setenv("APP_ENV", "")
 	t.Setenv("HTTP_ADDR", "")
 	t.Setenv("DB_PATH", "")
+	t.Setenv("WORKER_INTERVAL", "")
 	t.Setenv("HTTP_READ_TIMEOUT", "")
 	t.Setenv("HTTP_WRITE_TIMEOUT", "")
 	t.Setenv("HTTP_IDLE_TIMEOUT", "")
@@ -27,6 +28,9 @@ func TestLoadUsesDefaults(t *testing.T) {
 	}
 	if cfg.DatabasePath != "data/gheymatchi.db" {
 		t.Fatalf("DatabasePath = %q, want data/gheymatchi.db", cfg.DatabasePath)
+	}
+	if cfg.WorkerInterval != 5*time.Minute {
+		t.Fatalf("WorkerInterval = %s, want 5m", cfg.WorkerInterval)
 	}
 	if cfg.ShutdownTimeout != 10*time.Second {
 		t.Fatalf("ShutdownTimeout = %s, want 10s", cfg.ShutdownTimeout)

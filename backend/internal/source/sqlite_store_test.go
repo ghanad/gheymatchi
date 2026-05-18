@@ -82,6 +82,33 @@ func TestSQLiteStoreCreateRequiresProduct(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreListActive(t *testing.T) {
+	database := newTestDB(t)
+	productID := createTestProduct(t, database)
+	store := NewSQLiteStore(database)
+	ctx := context.Background()
+
+	active, err := store.Create(ctx, productID, CreateInput{URL: "https://example.com/active"})
+	if err != nil {
+		t.Fatalf("Create() active error = %v", err)
+	}
+	inactiveFlag := false
+	if _, err := store.Create(ctx, productID, CreateInput{URL: "https://example.com/inactive", IsActive: &inactiveFlag}); err != nil {
+		t.Fatalf("Create() inactive error = %v", err)
+	}
+
+	sources, err := store.ListActive(ctx)
+	if err != nil {
+		t.Fatalf("ListActive() error = %v", err)
+	}
+	if len(sources) != 1 {
+		t.Fatalf("len(sources) = %d, want 1", len(sources))
+	}
+	if sources[0].ID != active.ID {
+		t.Fatalf("active source ID = %q, want %q", sources[0].ID, active.ID)
+	}
+}
+
 func newTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 

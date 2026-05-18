@@ -27,6 +27,12 @@ make migrate
 make api
 ```
 
+Run the worker directly:
+
+```sh
+make worker
+```
+
 Run the frontend directly:
 
 ```sh
@@ -56,7 +62,7 @@ make docker-up
 
 ## Current Phase
 
-Phase 8 adds the initial Next.js frontend dashboard shell. It includes navigation, placeholder pages for upcoming frontend areas, a small backend API client helper, and Docker Compose wiring for the frontend service.
+Phase 9 adds a separate Go worker process for scheduled mock price checks. The worker loads active product sources from SQLite, writes mock price points, and records crawl run status.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
@@ -74,4 +80,4 @@ The backend currently includes configuration loading from environment variables,
 - `POST /api/products/{product_id}/sources/{source_id}/price-points`
 - `GET /api/products/{product_id}/price-points`
 
-Product management UI, charts, scraping, worker scheduler, market-rate behavior, alert evaluation, and notification sending are not implemented yet.
+Product management UI, charts, real scraping, market-rate behavior, alert evaluation, and notification sending are not implemented yet.

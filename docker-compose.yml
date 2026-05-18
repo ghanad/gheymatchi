@@ -21,6 +21,19 @@ services:
       - "3000:3000"
     depends_on:
       - api
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["/usr/local/bin/gheymatchi-worker"]
+    environment:
+      APP_ENV: local
+      DB_PATH: /data/gheymatchi.db
+      WORKER_INTERVAL: 5m
+    depends_on:
+      - api
+    volumes:
+      - ./data:/data
   migrate:
     build:
       context: .
