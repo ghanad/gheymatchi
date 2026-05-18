@@ -15,7 +15,7 @@ import {
   ProductSourceInput,
   updateProductSource
 } from "../../../lib/api";
-import { formatDateTime, formatIRR } from "../../../lib/format";
+import { formatDateTime, formatDecimalText, formatIRR } from "../../../lib/format";
 
 const emptySourceForm: ProductSourceInput = {
   url: "",
@@ -309,7 +309,9 @@ function PriceTable({ pricePoints, sources }: { pricePoints: PricePoint[]; sourc
         <thead>
           <tr>
             <th>Captured</th>
-            <th>Price</th>
+            <th>IRR price</th>
+            <th>USD</th>
+            <th>Gold gram</th>
             <th>Source</th>
           </tr>
         </thead>
@@ -318,6 +320,8 @@ function PriceTable({ pricePoints, sources }: { pricePoints: PricePoint[]; sourc
             <tr key={point.id}>
               <td>{formatDateTime(point.captured_at)}</td>
               <td>{formatIRR(point.price_irr)}</td>
+              <td>{point.price_usd ? formatDecimalText(point.price_usd, "USD") : "Not available"}</td>
+              <td>{point.price_gold_gram ? formatDecimalText(point.price_gold_gram, "g") : "Not available"}</td>
               <td>{sourceNames.get(point.product_source_id) || "Unknown source"}</td>
             </tr>
           ))}

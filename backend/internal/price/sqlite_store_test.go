@@ -52,6 +52,68 @@ func TestSQLiteStoreCreateAndListByProduct(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreCreateAttachesDerivedPricesFromRatesAtCaptureTime(t *testing.T) {
+	database := newTestDB(t)
+	productID := createTestProduct(t, database, "test-product")
+	sourceID := createTestSource(t, database, productID, "test-source")
+	insertTestMarketRate(t, database, "usd-old", "USD_IRR", "600000", "2026-01-01T09:00:00Z")
+	insertTestMarketRate(t, database, "usd-new", "USD_IRR", "650000", "2026-01-01T11:00:00Z")
+	insertTestMarketRate(t, database, "gold-old", "GOLD_GRAM_IRR", "60000000", "2026-01-01T09:00:00Z")
+	insertTestMarketRate(t, database, "gold-new", "GOLD_GRAM_IRR", "70000000", "2026-01-01T11:00:00Z")
+
+	store := NewSQLiteStore(database)
+	capturedAt := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	created, err := store.Create(context.Background(), productID, sourceID, CreateInput{
+		PriceIRR:   120000000,
+		CapturedAt: capturedAt,
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if created.USDIRRRateValueText == nil || *created.USDIRRRateValueText != "600000" {
+		t.Fatalf("USDIRRRateValueText = %v, want 600000", created.USDIRRRateValueText)
+	}
+	if created.PriceUSD == nil || *created.PriceUSD != "200" {
+		t.Fatalf("PriceUSD = %v, want 200", created.PriceUSD)
+	}
+	if created.GoldGramIRRRateValueText == nil || *created.GoldGramIRRRateValueText != "60000000" {
+		t.Fatalf("GoldGramIRRRateValueText = %v, want 60000000", created.GoldGramIRRRateValueText)
+	}
+	if created.PriceGoldGram == nil || *created.PriceGoldGram != "2" {
+		t.Fatalf("PriceGoldGram = %v, want 2", created.PriceGoldGram)
+	}
+
+	pricePoints, err := store.ListByProduct(context.Background(), productID)
+	if err != nil {
+		t.Fatalf("ListByProduct() error = %v", err)
+	}
+	if len(pricePoints) != 1 {
+		t.Fatalf("len(pricePoints) = %d, want 1", len(pricePoints))
+	}
+	if pricePoints[0].PriceUSD == nil || *pricePoints[0].PriceUSD != "200" {
+		t.Fatalf("listed PriceUSD = %v, want 200", pricePoints[0].PriceUSD)
+	}
+}
+
+func TestSQLiteStoreCreateAllowsMissingRates(t *testing.T) {
+	database := newTestDB(t)
+	productID := createTestProduct(t, database, "test-product")
+	sourceID := createTestSource(t, database, productID, "test-source")
+	store := NewSQLiteStore(database)
+
+	created, err := store.Create(context.Background(), productID, sourceID, CreateInput{PriceIRR: 120000000})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if created.PriceUSD != nil {
+		t.Fatalf("PriceUSD = %v, want nil", *created.PriceUSD)
+	}
+	if created.PriceGoldGram != nil {
+		t.Fatalf("PriceGoldGram = %v, want nil", *created.PriceGoldGram)
+	}
+}
+
 func TestSQLiteStoreCreateRequiresMatchingSource(t *testing.T) {
 	database := newTestDB(t)
 	productID := createTestProduct(t, database, "test-product")
@@ -120,4 +182,21 @@ func createTestSource(t *testing.T, database *sql.DB, productID string, sourceID
 		t.Fatalf("insert product source: %v", err)
 	}
 	return sourceID
+}
+
+func insertTestMarketRate(t *testing.T, database *sql.DB, id string, rateType string, valueText string, observedAt string) {
+	t.Helper()
+
+	_, err := database.Exec(
+		`INSERT INTO market_rates (id, rate_type, unit, value_text, observed_at, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		id,
+		rateType,
+		"IRR",
+		valueText,
+		observedAt,
+		"2026-01-01T00:00:00Z",
+	)
+	if err != nil {
+		t.Fatalf("insert market rate: %v", err)
+	}
 }

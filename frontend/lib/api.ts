@@ -36,6 +36,10 @@ export type PricePoint = {
   product_id: string;
   product_source_id: string;
   price_irr: number;
+  usd_irr_rate_value_text?: string;
+  gold_gram_irr_rate_value_text?: string;
+  price_usd?: string;
+  price_gold_gram?: string;
   captured_at: string;
   raw_payload?: string;
   created_at: string;

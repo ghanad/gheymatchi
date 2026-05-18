@@ -16,6 +16,6 @@ The API service and worker service should be separate Go binaries. They can shar
 
 ## Current Phase Boundary
 
-Phase 6 adds a focused source module under `backend/internal/source`. HTTP handlers parse requests and write responses, while validation and SQLite persistence live in the source package behind a store interface.
+Phase 14 keeps derived price behavior inside the price module. HTTP handlers still delegate persistence to stores, and price capture now snapshots available market-rate values for deterministic USD and gold gram equivalents.
 
-Price history, scraping, worker scheduling, frontend implementation, market rates, alerts, and notifications remain out of scope.
+Real scraping, alert evaluation, and notification sending remain out of scope.

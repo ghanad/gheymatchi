@@ -62,7 +62,7 @@ make docker-up
 
 ## Current Phase
 
-Phase 10 adds alert rule management. Alerts belong to products, support ABOVE and BELOW conditions, and can target IRR, USD, or gold grams. Alert evaluation and notification sending are not implemented yet.
+Phase 14 adds deterministic derived price values. New price points snapshot the latest available USD/IRR and gold gram/IRR rates observed at or before the price capture time, then store optional USD and gold gram equivalents with the historical price point.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
@@ -83,5 +83,8 @@ The backend currently includes configuration loading from environment variables,
 - `GET /api/products/{product_id}/alerts`
 - `PATCH /api/products/{product_id}/alerts/{alert_id}`
 - `DELETE /api/products/{product_id}/alerts/{alert_id}`
+- `POST /api/market-rates`
+- `GET /api/market-rates/latest`
+- `GET /api/market-rates/history`
 
-Product management UI, charts, real scraping, market-rate behavior, alert evaluation, and notification sending are not implemented yet.
+Product management UI, charts, manual market-rate storage, and derived price display are implemented. Real scraping, alert evaluation, and notification sending are not implemented yet.

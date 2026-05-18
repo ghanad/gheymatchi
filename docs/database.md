@@ -56,3 +56,5 @@ Phase 6 uses the existing `product_sources` table for source URL management. Mig
 Phase 7 uses `price_points` for manual price history recording. Migration `003_price_points_phase7.sql` reshapes the original placeholder table to store `product_id`, `product_source_id`, integer `price_irr`, `captured_at`, optional `raw_payload`, and `created_at`.
 
 Price history is queried by product and ordered by `captured_at` for charting. Price amounts are stored as integer IRR values, not floating point numbers.
+
+Phase 14 adds optional derived value columns to `price_points`: `usd_irr_rate_value_text`, `gold_gram_irr_rate_value_text`, `price_usd`, and `price_gold_gram`. These values are captured when the price point is created using the latest market rates observed at or before `captured_at`; historical rows are not recalculated when newer rates are inserted.
