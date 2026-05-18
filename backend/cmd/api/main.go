@@ -15,6 +15,7 @@ import (
 	"gheymatchi/backend/internal/alert"
 	"gheymatchi/backend/internal/config"
 	"gheymatchi/backend/internal/db"
+	"gheymatchi/backend/internal/marketrate"
 	"gheymatchi/backend/internal/price"
 	"gheymatchi/backend/internal/product"
 	"gheymatchi/backend/internal/source"
@@ -53,6 +54,7 @@ func run(cfg config.Config, logger *slog.Logger, database *sql.DB) error {
 	source.NewHandler(source.NewSQLiteStore(database)).Register(mux)
 	price.NewHandler(price.NewSQLiteStore(database)).Register(mux)
 	alert.NewHandler(alert.NewSQLiteStore(database)).Register(mux)
+	marketrate.NewHandler(marketrate.NewSQLiteStore(database)).Register(mux)
 
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr,
