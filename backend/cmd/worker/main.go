@@ -8,9 +8,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"gheymatchi/backend/internal/alert"
 	"gheymatchi/backend/internal/config"
 	"gheymatchi/backend/internal/crawl"
 	"gheymatchi/backend/internal/db"
+	"gheymatchi/backend/internal/notification"
 	"gheymatchi/backend/internal/price"
 	"gheymatchi/backend/internal/source"
 	"gheymatchi/backend/internal/worker"
@@ -42,6 +44,7 @@ func main() {
 		source.NewSQLiteStore(database),
 		price.NewSQLiteStore(database),
 		crawl.NewSQLiteStore(database),
+		alert.NewEvaluator(alert.NewSQLiteStore(database), notification.NewSQLiteStore(database)),
 		price.NewMockPriceFetcher(),
 		logger,
 	)

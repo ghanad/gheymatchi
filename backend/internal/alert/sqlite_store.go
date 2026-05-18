@@ -71,7 +71,7 @@ func (s *SQLiteStore) List(ctx context.Context, productID string) ([]Alert, erro
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, created_at, updated_at
+SELECT id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, last_triggered_at, created_at, updated_at
 FROM alerts
 WHERE product_id = ?
 ORDER BY created_at DESC, id DESC`, productID)
@@ -118,19 +118,24 @@ func (s *SQLiteStore) Update(ctx context.Context, productID string, alertID stri
 	if normalized.ThresholdValueText != nil {
 		existing.ThresholdValueText = *normalized.ThresholdValueText
 	}
+	criteriaChanged := normalized.ConditionType != nil || normalized.TargetUnit != nil || normalized.ThresholdValueText != nil
+	if criteriaChanged {
+		existing.LastTriggeredAt = nil
+	}
 	if normalized.IsActive != nil {
 		existing.IsActive = *normalized.IsActive
 	}
 	existing.UpdatedAt = time.Now().UTC()
 
 	result, err := s.db.ExecContext(ctx, `UPDATE alerts
-SET name = ?, condition_type = ?, target_unit = ?, threshold_value_text = ?, is_active = ?, updated_at = ?
+SET name = ?, condition_type = ?, target_unit = ?, threshold_value_text = ?, is_active = ?, last_triggered_at = ?, updated_at = ?
 WHERE product_id = ? AND id = ?`,
 		existing.Name,
 		existing.ConditionType,
 		existing.TargetUnit,
 		existing.ThresholdValueText,
 		boolInt(existing.IsActive),
+		nullTimePtr(existing.LastTriggeredAt),
 		formatTime(existing.UpdatedAt),
 		productID,
 		alertID,
@@ -165,9 +170,58 @@ func (s *SQLiteStore) Delete(ctx context.Context, productID string, alertID stri
 	return nil
 }
 
+func (s *SQLiteStore) ListActiveByProduct(ctx context.Context, productID string) ([]Alert, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, last_triggered_at, created_at, updated_at
+FROM alerts
+WHERE product_id = ? AND is_active = 1
+ORDER BY created_at ASC, id ASC`, productID)
+	if err != nil {
+		return nil, fmt.Errorf("list active alerts: %w", err)
+	}
+	defer rows.Close()
+
+	var alerts []Alert
+	for rows.Next() {
+		alert, err := scanAlert(rows)
+		if err != nil {
+			return nil, err
+		}
+		alerts = append(alerts, alert)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list active alerts rows: %w", err)
+	}
+
+	return alerts, nil
+}
+
+func (s *SQLiteStore) MarkTriggered(ctx context.Context, alertID string, triggeredAt time.Time) error {
+	now := time.Now().UTC()
+	result, err := s.db.ExecContext(ctx, `
+UPDATE alerts
+SET last_triggered_at = ?, updated_at = ?
+WHERE id = ?`,
+		formatTime(triggeredAt),
+		formatTime(now),
+		alertID,
+	)
+	if err != nil {
+		return fmt.Errorf("mark alert triggered: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check alert trigger update: %w", err)
+	}
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *SQLiteStore) get(ctx context.Context, productID string, alertID string) (Alert, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, created_at, updated_at
+SELECT id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, last_triggered_at, created_at, updated_at
 FROM alerts
 WHERE product_id = ? AND id = ?`, productID, alertID)
 
@@ -198,6 +252,7 @@ func scanAlert(row scanner) (Alert, error) {
 	var alert Alert
 	var userID sql.NullString
 	var isActive int
+	var lastTriggeredAt sql.NullString
 	var createdAt string
 	var updatedAt string
 
@@ -210,6 +265,7 @@ func scanAlert(row scanner) (Alert, error) {
 		&alert.TargetUnit,
 		&alert.ThresholdValueText,
 		&isActive,
+		&lastTriggeredAt,
 		&createdAt,
 		&updatedAt,
 	)
@@ -224,6 +280,13 @@ func scanAlert(row scanner) (Alert, error) {
 		alert.UserID = &userID.String
 	}
 	alert.IsActive = isActive != 0
+	if lastTriggeredAt.Valid {
+		parsed, err := parseTime(lastTriggeredAt.String)
+		if err != nil {
+			return Alert{}, err
+		}
+		alert.LastTriggeredAt = &parsed
+	}
 
 	alert.CreatedAt, err = parseTime(createdAt)
 	if err != nil {
@@ -242,6 +305,13 @@ func boolInt(value bool) int {
 		return 1
 	}
 	return 0
+}
+
+func nullTimePtr(value *time.Time) sql.NullString {
+	if value == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: formatTime(*value), Valid: true}
 }
 
 func formatTime(value time.Time) string {

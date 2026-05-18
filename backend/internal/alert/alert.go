@@ -25,16 +25,17 @@ var (
 )
 
 type Alert struct {
-	ID                 string    `json:"id"`
-	UserID             *string   `json:"user_id,omitempty"`
-	ProductID          string    `json:"product_id"`
-	Name               string    `json:"name"`
-	ConditionType      string    `json:"condition_type"`
-	TargetUnit         string    `json:"target_unit"`
-	ThresholdValueText string    `json:"threshold_value_text"`
-	IsActive           bool      `json:"is_active"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                 string     `json:"id"`
+	UserID             *string    `json:"user_id,omitempty"`
+	ProductID          string     `json:"product_id"`
+	Name               string     `json:"name"`
+	ConditionType      string     `json:"condition_type"`
+	TargetUnit         string     `json:"target_unit"`
+	ThresholdValueText string     `json:"threshold_value_text"`
+	IsActive           bool       `json:"is_active"`
+	LastTriggeredAt    *time.Time `json:"last_triggered_at,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 type CreateInput struct {

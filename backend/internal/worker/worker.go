@@ -18,6 +18,10 @@ type PriceStore interface {
 	Create(ctx context.Context, productID string, productSourceID string, input price.CreateInput) (price.PricePoint, error)
 }
 
+type AlertEvaluator interface {
+	EvaluatePricePoint(ctx context.Context, pricePoint price.PricePoint) error
+}
+
 type CrawlStore interface {
 	Start(ctx context.Context, sourceID string) (crawl.Run, error)
 	Finish(ctx context.Context, id string, status string, errorMessage *string) error
@@ -27,15 +31,17 @@ type Runner struct {
 	sources SourceLister
 	prices  PriceStore
 	crawls  CrawlStore
+	alerts  AlertEvaluator
 	fetcher price.Fetcher
 	logger  *slog.Logger
 }
 
-func NewRunner(sources SourceLister, prices PriceStore, crawls CrawlStore, fetcher price.Fetcher, logger *slog.Logger) Runner {
+func NewRunner(sources SourceLister, prices PriceStore, crawls CrawlStore, alerts AlertEvaluator, fetcher price.Fetcher, logger *slog.Logger) Runner {
 	return Runner{
 		sources: sources,
 		prices:  prices,
 		crawls:  crawls,
+		alerts:  alerts,
 		fetcher: fetcher,
 		logger:  logger,
 	}
@@ -106,14 +112,23 @@ func (r Runner) checkSource(ctx context.Context, productSource source.ProductSou
 		return err
 	}
 
-	if _, err := r.prices.Create(ctx, productSource.ProductID, productSource.ID, price.CreateInput{
+	pricePoint, err := r.prices.Create(ctx, productSource.ProductID, productSource.ID, price.CreateInput{
 		PriceIRR:   result.PriceIRR,
 		CapturedAt: result.CapturedAt,
 		RawPayload: result.RawPayload,
-	}); err != nil {
+	})
+	if err != nil {
 		message := err.Error()
 		_ = r.crawls.Finish(ctx, run.ID, crawl.StatusFailed, &message)
 		return err
+	}
+
+	if r.alerts != nil {
+		if err := r.alerts.EvaluatePricePoint(ctx, pricePoint); err != nil {
+			message := err.Error()
+			_ = r.crawls.Finish(ctx, run.ID, crawl.StatusFailed, &message)
+			return err
+		}
 	}
 
 	if err := r.crawls.Finish(ctx, run.ID, crawl.StatusSucceeded, nil); err != nil {
