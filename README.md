@@ -6,7 +6,7 @@ The MVP starts with a simple modular monolith: a Go backend, a Next.js + TypeScr
 
 ## Local Development Goal
 
-The project should run on a MacBook with simple local commands and Docker Compose. The current backend API exposes health checks, connects to a local SQLite database for readiness checks, and provides product CRUD, product source URL management, and manual price history endpoints. The frontend provides the initial dashboard shell and placeholder pages.
+The project should run on a MacBook with simple local commands and Docker Compose. The current backend API exposes health checks, connects to a local SQLite database for readiness checks, and provides product CRUD, product source URL management, manual price history endpoints, and product alert rule management. The frontend provides the initial dashboard shell and a simple alert rule management page.
 
 ## Initial Stack
 
@@ -62,7 +62,7 @@ make docker-up
 
 ## Current Phase
 
-Phase 9 adds a separate Go worker process for scheduled mock price checks. The worker loads active product sources from SQLite, writes mock price points, and records crawl run status.
+Phase 10 adds alert rule management. Alerts belong to products, support ABOVE and BELOW conditions, and can target IRR, USD, or gold grams. Alert evaluation and notification sending are not implemented yet.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
@@ -79,5 +79,9 @@ The backend currently includes configuration loading from environment variables,
 - `DELETE /api/products/{product_id}/sources/{source_id}`
 - `POST /api/products/{product_id}/sources/{source_id}/price-points`
 - `GET /api/products/{product_id}/price-points`
+- `POST /api/products/{product_id}/alerts`
+- `GET /api/products/{product_id}/alerts`
+- `PATCH /api/products/{product_id}/alerts/{alert_id}`
+- `DELETE /api/products/{product_id}/alerts/{alert_id}`
 
 Product management UI, charts, real scraping, market-rate behavior, alert evaluation, and notification sending are not implemented yet.

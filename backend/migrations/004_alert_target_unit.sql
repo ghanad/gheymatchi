@@ -1,0 +1,1 @@
+ALTER TABLE alerts ADD COLUMN target_unit TEXT NOT NULL DEFAULT 'IRR';

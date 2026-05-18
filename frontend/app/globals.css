@@ -201,6 +201,143 @@ p {
   font-size: 14px;
 }
 
+.alert-workspace {
+  display: grid;
+  gap: 18px;
+}
+
+.alert-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+}
+
+.alert-form,
+.alert-list {
+  display: grid;
+  gap: 14px;
+}
+
+.alert-form h2,
+.alert-list h2 {
+  font-size: 18px;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.field,
+.check-field {
+  color: var(--text);
+  display: grid;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.field-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+input,
+select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  min-height: 42px;
+  padding: 9px 10px;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
+  outline: 2px solid #cfe9de;
+}
+
+.check-field {
+  align-items: center;
+  display: flex;
+  font-weight: 600;
+}
+
+.check-field input {
+  min-height: auto;
+}
+
+.button-row,
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.secondary-button {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.danger-button {
+  background: #ffffff;
+  border-color: #f2b8b2;
+  color: var(--danger);
+}
+
+.form-error {
+  background: #ffe4e0;
+  border: 1px solid #f2b8b2;
+  border-radius: 6px;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+.alert-row {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto auto;
+  padding: 14px;
+}
+
+.alert-row div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.alert-row strong {
+  font-size: 15px;
+}
+
+.alert-row span:not(.status-badge) {
+  color: var(--muted);
+  font-size: 14px;
+}
+
 @media (max-width: 760px) {
   .topbar-inner {
     align-items: flex-start;
@@ -216,5 +353,11 @@ p {
 
   .panel-wide {
     grid-column: auto;
+  }
+
+  .alert-grid,
+  .field-row,
+  .alert-row {
+    grid-template-columns: 1fr;
   }
 }
