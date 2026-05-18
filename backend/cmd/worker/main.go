@@ -45,6 +45,7 @@ func main() {
 		price.NewSQLiteStore(database),
 		crawl.NewSQLiteStore(database),
 		alert.NewEvaluator(alert.NewSQLiteStore(database), notification.NewSQLiteStore(database)),
+		notification.NewProcessor(notification.NewSQLiteStore(database), notification.NewDryRunSender(logger)),
 		price.NewMockPriceFetcher(),
 		logger,
 	)

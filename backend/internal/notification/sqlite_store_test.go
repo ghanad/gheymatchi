@@ -37,14 +37,60 @@ func TestSQLiteStoreCreateAlertTriggered(t *testing.T) {
 	if err := database.QueryRow(`SELECT channel, recipient, status FROM notifications WHERE alert_id = ?`, "alert-1").Scan(&channel, &recipient, &status); err != nil {
 		t.Fatalf("query notification: %v", err)
 	}
-	if channel != ChannelInternal {
-		t.Fatalf("channel = %q, want %q", channel, ChannelInternal)
+	if channel != ChannelDryRun {
+		t.Fatalf("channel = %q, want %q", channel, ChannelDryRun)
 	}
 	if recipient != "product-1" {
 		t.Fatalf("recipient = %q, want product-1", recipient)
 	}
 	if status != StatusPending {
 		t.Fatalf("status = %q, want %q", status, StatusPending)
+	}
+}
+
+func TestSQLiteStoreListPendingAndMarkSent(t *testing.T) {
+	database := newTestDB(t)
+	store := NewSQLiteStore(database)
+	insertAlert(t, database)
+
+	err := store.CreateAlertTriggered(context.Background(), alert.Alert{
+		ID:        "alert-1",
+		ProductID: "product-1",
+	}, price.PricePoint{
+		ID:         "price-1",
+		ProductID:  "product-1",
+		PriceIRR:   90,
+		CapturedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("CreateAlertTriggered() error = %v", err)
+	}
+
+	pending, err := store.ListPending(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ListPending() error = %v", err)
+	}
+	if len(pending) != 1 {
+		t.Fatalf("pending notifications = %d, want 1", len(pending))
+	}
+
+	sentAt := time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC)
+	if err := store.MarkSent(context.Background(), pending[0].ID, sentAt); err != nil {
+		t.Fatalf("MarkSent() error = %v", err)
+	}
+
+	listed, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(listed) != 1 {
+		t.Fatalf("notifications = %d, want 1", len(listed))
+	}
+	if listed[0].Status != StatusSent {
+		t.Fatalf("status = %q, want %q", listed[0].Status, StatusSent)
+	}
+	if listed[0].SentAt == nil || !listed[0].SentAt.Equal(sentAt) {
+		t.Fatalf("sentAt = %v, want %v", listed[0].SentAt, sentAt)
 	}
 }
 

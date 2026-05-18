@@ -3,8 +3,13 @@ package notification
 import "time"
 
 const (
-	ChannelInternal = "internal"
-	StatusPending   = "pending"
+	ChannelEmail  = "email"
+	ChannelSMS    = "sms"
+	ChannelDryRun = "dry_run"
+
+	StatusPending = "pending"
+	StatusSent    = "sent"
+	StatusFailed  = "failed"
 )
 
 type Notification struct {

@@ -4,6 +4,7 @@ const links = [
   { href: "/", label: "Dashboard" },
   { href: "/products", label: "Products" },
   { href: "/alerts", label: "Alerts" },
+  { href: "/notifications", label: "Notifications" },
   { href: "/settings", label: "Settings" }
 ];
 

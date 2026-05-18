@@ -65,6 +65,16 @@ export type AlertInput = {
   is_active?: boolean;
 };
 
+export type Notification = {
+  id: string;
+  alert_id?: string;
+  channel: "email" | "sms" | "dry_run";
+  recipient: string;
+  status: "pending" | "sent" | "failed";
+  sent_at?: string;
+  created_at: string;
+};
+
 const defaultBaseURL = "http://localhost:8080";
 
 export function apiBaseURL() {
@@ -275,6 +285,19 @@ export async function deleteProductAlert(productID: string, alertID: string): Pr
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Delete alert failed"));
   }
+}
+
+export async function fetchNotifications(): Promise<Notification[]> {
+  const response = await fetch(`${apiBaseURL()}/api/notifications`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Notification request failed"));
+  }
+
+  const body = (await response.json()) as { notifications: Notification[] };
+  return body.notifications;
 }
 
 async function errorMessage(response: Response, fallback: string): Promise<string> {

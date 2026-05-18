@@ -365,6 +365,38 @@ button:disabled {
   font-size: 14px;
 }
 
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+
+.notification-row {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto minmax(180px, auto);
+  padding: 14px;
+}
+
+.notification-row div:first-child,
+.notification-time {
+  display: grid;
+  gap: 4px;
+}
+
+.notification-row strong {
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.notification-row span:not(.status-badge) {
+  color: var(--muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
 .product-workspace {
   display: grid;
   gap: 16px;
@@ -512,6 +544,7 @@ th {
   .product-grid,
   .field-row,
   .alert-row,
+  .notification-row,
   .product-row,
   .source-row {
     grid-template-columns: 1fr;

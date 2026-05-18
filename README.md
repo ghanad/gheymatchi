@@ -62,7 +62,7 @@ make docker-up
 
 ## Current Phase
 
-Phase 16 adds alert evaluation in the worker. Users can create, list, edit, pause, and delete product alert rules for BELOW and ABOVE conditions targeting IRR, USD, or gold gram values. When the worker stores a new price point, active alerts for that product are evaluated and matching alerts create pending internal notification records. Real email and SMS delivery are intentionally not implemented yet.
+Phase 17 adds the dry-run notification system. Users can create, list, edit, pause, and delete product alert rules for BELOW and ABOVE conditions targeting IRR, USD, or gold gram values. When the worker stores a new price point, active alerts for that product are evaluated and matching alerts create pending dry-run notification records. The worker processes pending dry-run notifications, logs them, and marks them as sent. Real email and SMS delivery are intentionally not implemented yet.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
@@ -86,5 +86,6 @@ The backend currently includes configuration loading from environment variables,
 - `POST /api/market-rates`
 - `GET /api/market-rates/latest`
 - `GET /api/market-rates/history`
+- `GET /api/notifications`
 
-Product management UI, charts, manual market-rate storage, derived price display, alert rules, and worker-side alert evaluation are implemented. Real scraping and notification sending are not implemented yet.
+Product management UI, charts, manual market-rate storage, derived price display, alert rules, worker-side alert evaluation, and a notification log are implemented. Real scraping and email/SMS notification sending are not implemented yet.

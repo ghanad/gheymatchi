@@ -22,32 +22,44 @@ type AlertEvaluator interface {
 	EvaluatePricePoint(ctx context.Context, pricePoint price.PricePoint) error
 }
 
+type NotificationProcessor interface {
+	ProcessPending(ctx context.Context) error
+}
+
 type CrawlStore interface {
 	Start(ctx context.Context, sourceID string) (crawl.Run, error)
 	Finish(ctx context.Context, id string, status string, errorMessage *string) error
 }
 
 type Runner struct {
-	sources SourceLister
-	prices  PriceStore
-	crawls  CrawlStore
-	alerts  AlertEvaluator
-	fetcher price.Fetcher
-	logger  *slog.Logger
+	sources  SourceLister
+	prices   PriceStore
+	crawls   CrawlStore
+	alerts   AlertEvaluator
+	notifier NotificationProcessor
+	fetcher  price.Fetcher
+	logger   *slog.Logger
 }
 
-func NewRunner(sources SourceLister, prices PriceStore, crawls CrawlStore, alerts AlertEvaluator, fetcher price.Fetcher, logger *slog.Logger) Runner {
+func NewRunner(sources SourceLister, prices PriceStore, crawls CrawlStore, alerts AlertEvaluator, notifier NotificationProcessor, fetcher price.Fetcher, logger *slog.Logger) Runner {
 	return Runner{
-		sources: sources,
-		prices:  prices,
-		crawls:  crawls,
-		alerts:  alerts,
-		fetcher: fetcher,
-		logger:  logger,
+		sources:  sources,
+		prices:   prices,
+		crawls:   crawls,
+		alerts:   alerts,
+		notifier: notifier,
+		fetcher:  fetcher,
+		logger:   logger,
 	}
 }
 
 func (r Runner) RunOnce(ctx context.Context) error {
+	if r.notifier != nil {
+		if err := r.notifier.ProcessPending(ctx); err != nil {
+			r.logger.Error("notification processing failed", slog.String("error", err.Error()))
+		}
+	}
+
 	sources, err := r.sources.ListActive(ctx)
 	if err != nil {
 		return err
@@ -62,6 +74,12 @@ func (r Runner) RunOnce(ctx context.Context) error {
 				slog.String("product_id", productSource.ProductID),
 				slog.String("error", err.Error()),
 			)
+		}
+	}
+
+	if r.notifier != nil {
+		if err := r.notifier.ProcessPending(ctx); err != nil {
+			r.logger.Error("notification processing failed", slog.String("error", err.Error()))
 		}
 	}
 

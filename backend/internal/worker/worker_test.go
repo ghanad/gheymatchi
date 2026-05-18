@@ -21,6 +21,7 @@ func TestRunnerRunOnceCreatesPricePointAndRecordsSuccess(t *testing.T) {
 		prices,
 		crawls,
 		&fakeAlertEvaluator{},
+		&fakeNotificationProcessor{},
 		fakeFetcher{result: price.FetchResult{PriceIRR: 123_000, CapturedAt: time.Now().UTC()}},
 		testLogger(),
 	)
@@ -50,6 +51,7 @@ func TestRunnerRunOnceRecordsFailedFetch(t *testing.T) {
 		prices,
 		crawls,
 		&fakeAlertEvaluator{},
+		&fakeNotificationProcessor{},
 		fakeFetcher{err: errors.New("fetch failed")},
 		testLogger(),
 	)
@@ -125,6 +127,16 @@ func (f *fakeAlertEvaluator) EvaluatePricePoint(ctx context.Context, pricePoint 
 	}
 	f.evaluated = append(f.evaluated, pricePoint)
 	return nil
+}
+
+type fakeNotificationProcessor struct {
+	processed int
+	err       error
+}
+
+func (f *fakeNotificationProcessor) ProcessPending(ctx context.Context) error {
+	f.processed++
+	return f.err
 }
 
 func testSource() source.ProductSource {
