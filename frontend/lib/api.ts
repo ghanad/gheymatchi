@@ -71,6 +71,8 @@ export type Notification = {
   channel: "email" | "sms" | "dry_run";
   recipient: string;
   status: "pending" | "sent" | "failed";
+  attempt_count: number;
+  last_error?: string;
   sent_at?: string;
   created_at: string;
 };

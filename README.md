@@ -105,9 +105,30 @@ cd backend
 DB_PATH=../data/gheymatchi.db PRICE_FETCHER=digikala go run ./cmd/worker
 ```
 
+## Email Notifications
+
+Dry-run notifications remain the default. In dry-run mode, the worker records alert notifications and marks them sent without contacting an external provider.
+
+To enable SMTP email locally, configure the worker environment:
+
+```sh
+NOTIFICATION_PROVIDER=smtp
+NOTIFICATION_EMAIL_TO=you@example.com
+NOTIFICATION_MAX_ATTEMPTS=3
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=your-username
+SMTP_PASSWORD=your-password-or-api-key
+SMTP_FROM=alerts@example.com
+```
+
+Do not commit real SMTP credentials. In the current single-user MVP, `NOTIFICATION_EMAIL_TO` is a single local recipient. Per-user email addresses belong to the later authentication phase.
+
+With Docker Compose, pass those variables to the `worker` service through your shell or a local uncommitted override file. Failed sends keep the notification pending until `NOTIFICATION_MAX_ATTEMPTS` is reached, then the notification is marked failed with the latest non-secret error.
+
 ## Current Phase
 
-Phase 21 adds Docker Compose as an optional local stack while keeping native macOS development commands working.
+Phase 22 adds optional SMTP email notifications while keeping dry-run notifications as the default.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
@@ -133,4 +154,4 @@ The backend currently includes configuration loading from environment variables,
 - `GET /api/market-rates/history`
 - `GET /api/notifications`
 
-Product management UI, charts, manual market-rate storage, derived price display, alert rules, worker-side alert evaluation, a notification log, and one opt-in real Digikala price source adapter are implemented. Multiple source adapters, broad scraping, and real email/SMS notification sending are not implemented yet.
+Product management UI, charts, manual market-rate storage, derived price display, alert rules, worker-side alert evaluation, a notification log, optional SMTP email notifications, and one opt-in real Digikala price source adapter are implemented. Multiple source adapters, broad scraping, SMS notification sending, and per-user notification routing are not implemented yet.

@@ -13,6 +13,14 @@ func TestLoadUsesDefaults(t *testing.T) {
 	t.Setenv("PRICE_FETCHER", "")
 	t.Setenv("PRICE_FETCH_TIMEOUT", "")
 	t.Setenv("PRICE_FETCH_DELAY", "")
+	t.Setenv("NOTIFICATION_PROVIDER", "")
+	t.Setenv("NOTIFICATION_EMAIL_TO", "")
+	t.Setenv("NOTIFICATION_MAX_ATTEMPTS", "")
+	t.Setenv("SMTP_HOST", "")
+	t.Setenv("SMTP_PORT", "")
+	t.Setenv("SMTP_USERNAME", "")
+	t.Setenv("SMTP_PASSWORD", "")
+	t.Setenv("SMTP_FROM", "")
 	t.Setenv("HTTP_READ_TIMEOUT", "")
 	t.Setenv("HTTP_WRITE_TIMEOUT", "")
 	t.Setenv("HTTP_IDLE_TIMEOUT", "")
@@ -44,6 +52,15 @@ func TestLoadUsesDefaults(t *testing.T) {
 	if cfg.PriceFetchDelay != 2*time.Second {
 		t.Fatalf("PriceFetchDelay = %s, want 2s", cfg.PriceFetchDelay)
 	}
+	if cfg.NotificationProvider != "dry_run" {
+		t.Fatalf("NotificationProvider = %q, want dry_run", cfg.NotificationProvider)
+	}
+	if cfg.NotificationMaxAttempts != 3 {
+		t.Fatalf("NotificationMaxAttempts = %d, want 3", cfg.NotificationMaxAttempts)
+	}
+	if cfg.SMTPPort != "587" {
+		t.Fatalf("SMTPPort = %q, want 587", cfg.SMTPPort)
+	}
 	if cfg.ShutdownTimeout != 10*time.Second {
 		t.Fatalf("ShutdownTimeout = %s, want 10s", cfg.ShutdownTimeout)
 	}
@@ -51,6 +68,15 @@ func TestLoadUsesDefaults(t *testing.T) {
 
 func TestLoadRejectsInvalidDuration(t *testing.T) {
 	t.Setenv("HTTP_READ_TIMEOUT", "not-a-duration")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() error = nil, want error")
+	}
+}
+
+func TestLoadRejectsInvalidNotificationAttempts(t *testing.T) {
+	t.Setenv("NOTIFICATION_MAX_ATTEMPTS", "nope")
 
 	_, err := Load()
 	if err == nil {

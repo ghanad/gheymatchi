@@ -13,18 +13,30 @@ import (
 )
 
 type SQLiteStore struct {
-	db *sql.DB
+	db               *sql.DB
+	defaultChannel   string
+	defaultRecipient string
 }
 
 func NewSQLiteStore(db *sql.DB) *SQLiteStore {
-	return &SQLiteStore{db: db}
+	return &SQLiteStore{db: db, defaultChannel: ChannelDryRun}
+}
+
+func NewSQLiteStoreWithDefaults(db *sql.DB, channel string, recipient string) *SQLiteStore {
+	if channel == "" {
+		channel = ChannelDryRun
+	}
+	return &SQLiteStore{db: db, defaultChannel: channel, defaultRecipient: recipient}
 }
 
 func (s *SQLiteStore) CreateAlertTriggered(ctx context.Context, alert alert.Alert, pricePoint price.PricePoint) error {
 	now := time.Now().UTC()
-	recipient := alert.ProductID
-	if alert.UserID != nil {
+	recipient := s.defaultRecipient
+	if recipient == "" && alert.UserID != nil {
 		recipient = *alert.UserID
+	}
+	if recipient == "" {
+		recipient = alert.ProductID
 	}
 
 	_, err := s.db.ExecContext(ctx, `INSERT INTO notifications
@@ -32,7 +44,7 @@ func (s *SQLiteStore) CreateAlertTriggered(ctx context.Context, alert alert.Aler
 VALUES (?, ?, ?, ?, ?, ?)`,
 		newID(),
 		alert.ID,
-		ChannelDryRun,
+		s.defaultChannel,
 		recipient,
 		StatusPending,
 		formatTime(now),
@@ -45,7 +57,7 @@ VALUES (?, ?, ?, ?, ?, ?)`,
 
 func (s *SQLiteStore) List(ctx context.Context) ([]Notification, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, alert_id, channel, recipient, status, sent_at, created_at
+SELECT id, alert_id, channel, recipient, status, attempt_count, last_error, sent_at, created_at
 FROM notifications
 ORDER BY created_at DESC, id DESC`)
 	if err != nil {
@@ -62,7 +74,7 @@ func (s *SQLiteStore) ListPending(ctx context.Context, limit int) ([]Notificatio
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, alert_id, channel, recipient, status, sent_at, created_at
+SELECT id, alert_id, channel, recipient, status, attempt_count, last_error, sent_at, created_at
 FROM notifications
 WHERE status = ?
 ORDER BY created_at ASC, id ASC
@@ -78,7 +90,7 @@ LIMIT ?`, StatusPending, limit)
 func (s *SQLiteStore) MarkSent(ctx context.Context, id string, sentAt time.Time) error {
 	result, err := s.db.ExecContext(ctx, `
 UPDATE notifications
-SET status = ?, sent_at = ?
+SET status = ?, sent_at = ?, last_error = NULL
 WHERE id = ?`, StatusSent, formatTime(sentAt), id)
 	if err != nil {
 		return fmt.Errorf("mark notification sent: %w", err)
@@ -86,13 +98,18 @@ WHERE id = ?`, StatusSent, formatTime(sentAt), id)
 	return checkAffected(result, "sent")
 }
 
-func (s *SQLiteStore) MarkFailed(ctx context.Context, id string) error {
+func (s *SQLiteStore) RecordFailedAttempt(ctx context.Context, id string, message string, maxAttempts int) error {
+	if maxAttempts <= 0 {
+		maxAttempts = 1
+	}
 	result, err := s.db.ExecContext(ctx, `
 UPDATE notifications
-SET status = ?
-WHERE id = ?`, StatusFailed, id)
+SET attempt_count = attempt_count + 1,
+	last_error = ?,
+	status = CASE WHEN attempt_count + 1 >= ? THEN ? ELSE ? END
+WHERE id = ?`, message, maxAttempts, StatusFailed, StatusPending, id)
 	if err != nil {
-		return fmt.Errorf("mark notification failed: %w", err)
+		return fmt.Errorf("record notification failed attempt: %w", err)
 	}
 	return checkAffected(result, "failed")
 }
@@ -125,6 +142,7 @@ func scanNotifications(rows rowsScanner) ([]Notification, error) {
 func scanNotification(row rowScanner) (Notification, error) {
 	var notification Notification
 	var alertID sql.NullString
+	var lastError sql.NullString
 	var sentAt sql.NullString
 	var createdAt string
 
@@ -134,6 +152,8 @@ func scanNotification(row rowScanner) (Notification, error) {
 		&notification.Channel,
 		&notification.Recipient,
 		&notification.Status,
+		&notification.AttemptCount,
+		&lastError,
 		&sentAt,
 		&createdAt,
 	)
@@ -143,6 +163,9 @@ func scanNotification(row rowScanner) (Notification, error) {
 
 	if alertID.Valid {
 		notification.AlertID = &alertID.String
+	}
+	if lastError.Valid {
+		notification.LastError = &lastError.String
 	}
 	if sentAt.Valid {
 		parsed, err := parseTime(sentAt.String)

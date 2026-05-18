@@ -38,6 +38,8 @@ export default async function NotificationsPage() {
               <strong>{notification.channel.replace("_", " ")}</strong>
               <span>Recipient: {notification.recipient}</span>
               {notification.alert_id ? <span>Alert: {notification.alert_id}</span> : null}
+              {notification.attempt_count > 0 ? <span>Attempts: {notification.attempt_count}</span> : null}
+              {notification.last_error ? <span>Last error: {notification.last_error}</span> : null}
             </div>
             <span className={statusClass(notification.status)}>{notification.status}</span>
             <div className="notification-time">

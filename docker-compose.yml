@@ -51,6 +51,14 @@ services:
       DB_PATH: /data/gheymatchi.db
       WORKER_INTERVAL: 5m
       PRICE_FETCHER: mock
+      NOTIFICATION_PROVIDER: ${NOTIFICATION_PROVIDER:-dry_run}
+      NOTIFICATION_EMAIL_TO: ${NOTIFICATION_EMAIL_TO:-}
+      NOTIFICATION_MAX_ATTEMPTS: ${NOTIFICATION_MAX_ATTEMPTS:-3}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

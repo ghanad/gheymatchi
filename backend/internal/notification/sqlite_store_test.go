@@ -94,6 +94,63 @@ func TestSQLiteStoreListPendingAndMarkSent(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreRecordsFailedAttempts(t *testing.T) {
+	database := newTestDB(t)
+	store := NewSQLiteStore(database)
+	insertAlert(t, database)
+
+	err := store.CreateAlertTriggered(context.Background(), alert.Alert{
+		ID:        "alert-1",
+		ProductID: "product-1",
+	}, price.PricePoint{
+		ID:         "price-1",
+		ProductID:  "product-1",
+		PriceIRR:   90,
+		CapturedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("CreateAlertTriggered() error = %v", err)
+	}
+
+	pending, err := store.ListPending(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("ListPending() error = %v", err)
+	}
+
+	if err := store.RecordFailedAttempt(context.Background(), pending[0].ID, "smtp unavailable", 2); err != nil {
+		t.Fatalf("RecordFailedAttempt() first error = %v", err)
+	}
+
+	listed, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if listed[0].Status != StatusPending {
+		t.Fatalf("status after first attempt = %q, want pending", listed[0].Status)
+	}
+	if listed[0].AttemptCount != 1 {
+		t.Fatalf("attempt count after first attempt = %d, want 1", listed[0].AttemptCount)
+	}
+	if listed[0].LastError == nil || *listed[0].LastError != "smtp unavailable" {
+		t.Fatalf("last error = %v, want smtp unavailable", listed[0].LastError)
+	}
+
+	if err := store.RecordFailedAttempt(context.Background(), pending[0].ID, "smtp unavailable", 2); err != nil {
+		t.Fatalf("RecordFailedAttempt() second error = %v", err)
+	}
+
+	listed, err = store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if listed[0].Status != StatusFailed {
+		t.Fatalf("status after second attempt = %q, want failed", listed[0].Status)
+	}
+	if listed[0].AttemptCount != 2 {
+		t.Fatalf("attempt count after second attempt = %d, want 2", listed[0].AttemptCount)
+	}
+}
+
 func newTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
