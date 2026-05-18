@@ -421,6 +421,76 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.price-history {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.price-chart {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.price-chart svg {
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.price-chart line {
+  stroke: var(--border);
+  stroke-width: 2;
+}
+
+.price-chart polyline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.price-chart circle {
+  fill: var(--surface);
+  stroke: var(--accent-strong);
+  stroke-width: 2;
+}
+
+.chart-scale {
+  color: var(--muted);
+  display: flex;
+  font-size: 13px;
+  justify-content: space-between;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 560px;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  padding: 10px 8px;
+  text-align: left;
+}
+
+th {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
 @media (max-width: 760px) {
   .topbar-inner {
     align-items: flex-start;

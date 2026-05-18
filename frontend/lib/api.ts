@@ -31,6 +31,16 @@ export type ProductSourceInput = {
   is_active?: boolean;
 };
 
+export type PricePoint = {
+  id: string;
+  product_id: string;
+  product_source_id: string;
+  price_irr: number;
+  captured_at: string;
+  raw_payload?: string;
+  created_at: string;
+};
+
 export type Alert = {
   id: string;
   product_id: string;
@@ -193,6 +203,19 @@ export async function deleteProductSource(productID: string, sourceID: string): 
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Delete source failed"));
   }
+}
+
+export async function fetchProductPricePoints(productID: string): Promise<PricePoint[]> {
+  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/price-points`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Price history request failed"));
+  }
+
+  const body = (await response.json()) as { price_points: PricePoint[] };
+  return body.price_points;
 }
 
 export async function fetchProductAlerts(productID: string): Promise<Alert[]> {
