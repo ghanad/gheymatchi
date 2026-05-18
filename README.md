@@ -62,7 +62,7 @@ make docker-up
 
 ## Current Phase
 
-Phase 14 adds deterministic derived price values. New price points snapshot the latest available USD/IRR and gold gram/IRR rates observed at or before the price capture time, then store optional USD and gold gram equivalents with the historical price point.
+Phase 15 adds alert rule management. Users can create, list, edit, pause, and delete product alert rules for BELOW and ABOVE conditions targeting IRR, USD, or gold gram values. Alert evaluation and notifications are intentionally not implemented yet.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
