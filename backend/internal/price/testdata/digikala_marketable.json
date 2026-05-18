@@ -1,0 +1,12 @@
+{
+  "data": {
+    "product": {
+      "status": "marketable",
+      "default_variant": {
+        "price": {
+          "selling_price": 129990000
+        }
+      }
+    }
+  }
+}

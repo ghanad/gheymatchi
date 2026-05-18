@@ -7,30 +7,42 @@ import (
 )
 
 type Config struct {
-	Env             string
-	HTTPAddr        string
-	DatabasePath    string
-	WorkerInterval  time.Duration
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	IdleTimeout     time.Duration
-	ShutdownTimeout time.Duration
+	Env               string
+	HTTPAddr          string
+	DatabasePath      string
+	WorkerInterval    time.Duration
+	PriceFetcher      string
+	PriceFetchTimeout time.Duration
+	PriceFetchDelay   time.Duration
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
+	ShutdownTimeout   time.Duration
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		Env:             getenv("APP_ENV", "local"),
-		HTTPAddr:        getenv("HTTP_ADDR", ":8080"),
-		DatabasePath:    getenv("DB_PATH", "data/gheymatchi.db"),
-		WorkerInterval:  5 * time.Minute,
-		ReadTimeout:     5 * time.Second,
-		WriteTimeout:    10 * time.Second,
-		IdleTimeout:     60 * time.Second,
-		ShutdownTimeout: 10 * time.Second,
+		Env:               getenv("APP_ENV", "local"),
+		HTTPAddr:          getenv("HTTP_ADDR", ":8080"),
+		DatabasePath:      getenv("DB_PATH", "data/gheymatchi.db"),
+		WorkerInterval:    5 * time.Minute,
+		PriceFetcher:      getenv("PRICE_FETCHER", "mock"),
+		PriceFetchTimeout: 10 * time.Second,
+		PriceFetchDelay:   2 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		ShutdownTimeout:   10 * time.Second,
 	}
 
 	var err error
 	if cfg.WorkerInterval, err = durationFromEnv("WORKER_INTERVAL", cfg.WorkerInterval); err != nil {
+		return Config{}, err
+	}
+	if cfg.PriceFetchTimeout, err = durationFromEnv("PRICE_FETCH_TIMEOUT", cfg.PriceFetchTimeout); err != nil {
+		return Config{}, err
+	}
+	if cfg.PriceFetchDelay, err = durationFromEnv("PRICE_FETCH_DELAY", cfg.PriceFetchDelay); err != nil {
 		return Config{}, err
 	}
 	if cfg.ReadTimeout, err = durationFromEnv("HTTP_READ_TIMEOUT", cfg.ReadTimeout); err != nil {

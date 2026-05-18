@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"gheymatchi/backend/internal/alert"
@@ -40,13 +42,19 @@ func main() {
 	runCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	fetcher, err := buildPriceFetcher(cfg)
+	if err != nil {
+		logger.Error("configure price fetcher", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
 	runner := worker.NewRunner(
 		source.NewSQLiteStore(database),
 		price.NewSQLiteStore(database),
 		crawl.NewSQLiteStore(database),
 		alert.NewEvaluator(alert.NewSQLiteStore(database), notification.NewSQLiteStore(database)),
 		notification.NewProcessor(notification.NewSQLiteStore(database), notification.NewDryRunSender(logger)),
-		price.NewMockPriceFetcher(),
+		fetcher,
 		logger,
 	)
 
@@ -56,4 +64,15 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("worker stopped")
+}
+
+func buildPriceFetcher(cfg config.Config) (price.Fetcher, error) {
+	switch strings.ToLower(strings.TrimSpace(cfg.PriceFetcher)) {
+	case "", "mock":
+		return price.NewMockPriceFetcher(), nil
+	case "digikala":
+		return price.NewDigikalaFetcher(&http.Client{}, cfg.PriceFetchTimeout, cfg.PriceFetchDelay), nil
+	default:
+		return nil, errors.New("PRICE_FETCHER must be mock or digikala")
+	}
 }

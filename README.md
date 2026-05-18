@@ -33,6 +33,13 @@ Run the worker directly:
 make worker
 ```
 
+Run the worker with the first real external source adapter enabled:
+
+```sh
+cd backend
+DB_PATH=../data/gheymatchi.db PRICE_FETCHER=digikala go run ./cmd/worker
+```
+
 Run the frontend directly:
 
 ```sh
@@ -62,7 +69,7 @@ make docker-up
 
 ## Current Phase
 
-Phase 17 adds the dry-run notification system. Users can create, list, edit, pause, and delete product alert rules for BELOW and ABOVE conditions targeting IRR, USD, or gold gram values. When the worker stores a new price point, active alerts for that product are evaluated and matching alerts create pending dry-run notification records. The worker processes pending dry-run notifications, logs them, and marks them as sent. Real email and SMS delivery are intentionally not implemented yet.
+Phase 18 adds the first real external price source adapter. The worker still uses the deterministic mock fetcher by default for local development and Docker Compose. Setting `PRICE_FETCHER=digikala` enables the Digikala adapter for supported product URLs such as `https://www.digikala.com/product/dkp-1234567/...`. The adapter fetches Digikala's public product JSON endpoint with a per-request timeout, a conservative per-source delay, parser-level error handling, and compact raw metadata storage instead of storing full responses.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
@@ -88,4 +95,4 @@ The backend currently includes configuration loading from environment variables,
 - `GET /api/market-rates/history`
 - `GET /api/notifications`
 
-Product management UI, charts, manual market-rate storage, derived price display, alert rules, worker-side alert evaluation, and a notification log are implemented. Real scraping and email/SMS notification sending are not implemented yet.
+Product management UI, charts, manual market-rate storage, derived price display, alert rules, worker-side alert evaluation, a notification log, and one opt-in real Digikala price source adapter are implemented. Multiple source adapters, broad scraping, and real email/SMS notification sending are not implemented yet.
