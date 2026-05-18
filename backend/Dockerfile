@@ -5,6 +5,7 @@ COPY backend/go.mod ./
 COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/gheymatchi-api ./cmd/api
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/gheymatchi-migrate ./cmd/migrate
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/gheymatchi-seed ./cmd/seed
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/gheymatchi-worker ./cmd/worker
 
 FROM alpine:3.20
@@ -13,6 +14,7 @@ RUN adduser -D -H -u 10001 appuser && mkdir -p /data && chown appuser /data
 WORKDIR /app
 COPY --from=build /out/gheymatchi-api /usr/local/bin/gheymatchi-api
 COPY --from=build /out/gheymatchi-migrate /usr/local/bin/gheymatchi-migrate
+COPY --from=build /out/gheymatchi-seed /usr/local/bin/gheymatchi-seed
 COPY --from=build /out/gheymatchi-worker /usr/local/bin/gheymatchi-worker
 COPY backend/migrations ./migrations
 

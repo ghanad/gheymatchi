@@ -47,3 +47,15 @@ services:
       - tools
     volumes:
       - ./data:/data
+  seed:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["/usr/local/bin/gheymatchi-seed"]
+    environment:
+      APP_ENV: local
+      DB_PATH: /data/gheymatchi.db
+    profiles:
+      - tools
+    volumes:
+      - ./data:/data

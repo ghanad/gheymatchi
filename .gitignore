@@ -1,4 +1,8 @@
 gheymatchi_llm_implementation_plan.md
+.env
+.env.local
+backend/.env
+frontend/.env.local
 data/*.db
 data/*.db-*
 .cache/

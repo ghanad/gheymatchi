@@ -6,7 +6,7 @@ The MVP starts with a simple modular monolith: a Go backend, a Next.js + TypeScr
 
 ## Local Development Goal
 
-The project should run on a MacBook with simple local commands and Docker Compose. The current backend API exposes health checks, connects to a local SQLite database for readiness checks, and provides product CRUD, product source URL management, manual price history endpoints, and product alert rule management. The frontend provides the initial dashboard shell and a simple alert rule management page.
+The project runs on a MacBook with simple local commands and Docker Compose. The current backend API exposes health checks, connects to a local SQLite database for readiness checks, and provides product CRUD, product source URL management, manual price history endpoints, market-rate endpoints, product alert rule management, and a notification log. The frontend provides the dashboard, product detail, alert, notification, and settings screens.
 
 ## Initial Stack
 
@@ -16,42 +16,52 @@ The project should run on a MacBook with simple local commands and Docker Compos
 - Frontend: Next.js with TypeScript
 - Local MVP database: SQLite
 - Future database target: PostgreSQL
-- Local orchestration: Docker Compose when services exist
+- Local orchestration: Docker Compose
+
+## Prerequisites
+
+- Go 1.22 or newer
+- Node.js 20 or newer
+- Docker Desktop, if using Docker Compose
+- `make`
+
+## Environment Files
+
+Example environment files are committed without secrets:
+
+```sh
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+```
+
+The Makefile sets the local defaults directly, so copying these files is optional for the current MVP. Keep real secrets out of `.env` files.
 
 ## Local Commands
 
-Run the API directly:
+Install frontend dependencies once after a clean checkout:
+
+```sh
+make frontend-install
+```
+
+Create or update the local SQLite database:
 
 ```sh
 make migrate
+```
+
+Add local demo data for testing the frontend:
+
+```sh
+make seed
+```
+
+Run the API, worker, and frontend in separate terminal tabs:
+
+```sh
 make api
-```
-
-Run the worker directly:
-
-```sh
 make worker
-```
-
-Run the worker with the first real external source adapter enabled:
-
-```sh
-cd backend
-DB_PATH=../data/gheymatchi.db PRICE_FETCHER=digikala go run ./cmd/worker
-```
-
-Run the frontend directly:
-
-```sh
-cd frontend
-npm install
-BACKEND_API_BASE_URL=http://localhost:8080 npm run dev
-```
-
-Run database migrations:
-
-```sh
-make migrate
+make frontend
 ```
 
 Run backend tests:
@@ -60,16 +70,41 @@ Run backend tests:
 make test
 ```
 
-Run with Docker Compose:
+The frontend will be available at `http://localhost:3000`; the API listens on `http://localhost:8080`.
+
+## Docker Compose
+
+From a clean checkout, start the long-running services:
 
 ```sh
-docker compose run --rm migrate
 make docker-up
+```
+
+`make docker-up` applies migrations before starting services. To add optional demo data first, run:
+
+```sh
+make docker-seed
+make docker-up
+```
+
+Stop the Compose services:
+
+```sh
+make docker-down
+```
+
+## External Price Fetching
+
+The worker uses the deterministic mock fetcher by default for local development and Docker Compose. To opt into the Digikala adapter for a supported product URL, run the worker directly with:
+
+```sh
+cd backend
+DB_PATH=../data/gheymatchi.db PRICE_FETCHER=digikala go run ./cmd/worker
 ```
 
 ## Current Phase
 
-Phase 18 adds the first real external price source adapter. The worker still uses the deterministic mock fetcher by default for local development and Docker Compose. Setting `PRICE_FETCHER=digikala` enables the Digikala adapter for supported product URLs such as `https://www.digikala.com/product/dkp-1234567/...`. The adapter fetches Digikala's public product JSON endpoint with a per-request timeout, a conservative per-source delay, parser-level error handling, and compact raw metadata storage instead of storing full responses.
+Phase 19 improves local developer experience with documented setup, Makefile targets, example environment files, Docker Compose commands, and a local seed-data command.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
