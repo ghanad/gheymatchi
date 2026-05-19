@@ -35,7 +35,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ReadTimeout)
 	defer cancel()
 
-	database, err := db.Open(ctx, cfg.DatabasePath)
+	database, err := db.OpenConfigured(ctx, cfg.DatabaseDriver, cfg.DatabasePath, cfg.DatabaseDSN)
 	if err != nil {
 		logger.Error("open database", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -50,16 +50,16 @@ func main() {
 
 func run(cfg config.Config, logger *slog.Logger, database *sql.DB) error {
 	mux := http.NewServeMux()
-	authStore := auth.NewSQLiteStore(database)
+	authStore := auth.NewStore(database, db.Driver(cfg.DatabaseDriver))
 	mux.HandleFunc("/healthz", statusHandler("ok"))
 	mux.HandleFunc("/readyz", readinessHandler(database))
 	auth.NewHandler(authStore).Register(mux)
-	product.NewHandler(product.NewSQLiteStore(database)).Register(mux)
-	source.NewHandler(source.NewSQLiteStore(database)).Register(mux)
-	price.NewHandler(price.NewSQLiteStore(database)).Register(mux)
-	alert.NewHandler(alert.NewSQLiteStore(database)).Register(mux)
-	marketrate.NewHandler(marketrate.NewSQLiteStore(database)).Register(mux)
-	notification.NewHandler(notification.NewSQLiteStore(database)).Register(mux)
+	product.NewHandler(product.NewStore(database, db.Driver(cfg.DatabaseDriver))).Register(mux)
+	source.NewHandler(source.NewStore(database, db.Driver(cfg.DatabaseDriver))).Register(mux)
+	price.NewHandler(price.NewStore(database, db.Driver(cfg.DatabaseDriver))).Register(mux)
+	alert.NewHandler(alert.NewStore(database, db.Driver(cfg.DatabaseDriver))).Register(mux)
+	marketrate.NewHandler(marketrate.NewStore(database, db.Driver(cfg.DatabaseDriver))).Register(mux)
+	notification.NewHandler(notification.NewStore(database, db.Driver(cfg.DatabaseDriver))).Register(mux)
 
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr,
@@ -74,7 +74,7 @@ func run(cfg config.Config, logger *slog.Logger, database *sql.DB) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("api listening", slog.String("addr", cfg.HTTPAddr), slog.String("env", cfg.Env))
+		logger.Info("api listening", slog.String("addr", cfg.HTTPAddr), slog.String("env", cfg.Env), slog.String("database_driver", cfg.DatabaseDriver))
 		errCh <- server.ListenAndServe()
 	}()
 

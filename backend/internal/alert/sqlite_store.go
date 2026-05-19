@@ -9,14 +9,20 @@ import (
 	"time"
 
 	"gheymatchi/backend/internal/auth"
+	"gheymatchi/backend/internal/db"
 )
 
 type SQLiteStore struct {
-	db *sql.DB
+	db     *sql.DB
+	driver db.Driver
 }
 
 func NewSQLiteStore(db *sql.DB) *SQLiteStore {
-	return &SQLiteStore{db: db}
+	return NewStore(db, "sqlite")
+}
+
+func NewStore(database *sql.DB, driver db.Driver) *SQLiteStore {
+	return &SQLiteStore{db: database, driver: driver}
 }
 
 func (s *SQLiteStore) Create(ctx context.Context, productID string, input CreateInput) (Alert, error) {
@@ -50,9 +56,9 @@ func (s *SQLiteStore) Create(ctx context.Context, productID string, input Create
 		alert.UserID = &userID
 	}
 
-	_, err = s.db.ExecContext(ctx, `INSERT INTO alerts
+	_, err = s.db.ExecContext(ctx, s.rebind(`INSERT INTO alerts
 (id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		alert.ID,
 		nullStringPtr(alert.UserID),
 		alert.ProductID,
@@ -76,11 +82,11 @@ func (s *SQLiteStore) List(ctx context.Context, productID string) ([]Alert, erro
 		return nil, err
 	}
 
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
 SELECT id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, last_triggered_at, created_at, updated_at
 FROM alerts
 WHERE product_id = ?
-ORDER BY created_at DESC, id DESC`, productID)
+ORDER BY created_at DESC, id DESC`), productID)
 	if err != nil {
 		return nil, fmt.Errorf("list alerts: %w", err)
 	}
@@ -133,9 +139,9 @@ func (s *SQLiteStore) Update(ctx context.Context, productID string, alertID stri
 	}
 	existing.UpdatedAt = time.Now().UTC()
 
-	result, err := s.db.ExecContext(ctx, `UPDATE alerts
+	result, err := s.db.ExecContext(ctx, s.rebind(`UPDATE alerts
 SET name = ?, condition_type = ?, target_unit = ?, threshold_value_text = ?, is_active = ?, last_triggered_at = ?, updated_at = ?
-WHERE product_id = ? AND id = ?`,
+WHERE product_id = ? AND id = ?`),
 		existing.Name,
 		existing.ConditionType,
 		existing.TargetUnit,
@@ -164,7 +170,7 @@ func (s *SQLiteStore) Delete(ctx context.Context, productID string, alertID stri
 	if err := s.ensureProductExists(ctx, productID); err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `DELETE FROM alerts WHERE product_id = ? AND id = ?`, productID, alertID)
+	result, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM alerts WHERE product_id = ? AND id = ?`), productID, alertID)
 	if err != nil {
 		return fmt.Errorf("delete alert: %w", err)
 	}
@@ -180,11 +186,11 @@ func (s *SQLiteStore) Delete(ctx context.Context, productID string, alertID stri
 }
 
 func (s *SQLiteStore) ListActiveByProduct(ctx context.Context, productID string) ([]Alert, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
 SELECT id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, last_triggered_at, created_at, updated_at
 FROM alerts
 WHERE product_id = ? AND is_active = 1
-ORDER BY created_at ASC, id ASC`, productID)
+ORDER BY created_at ASC, id ASC`), productID)
 	if err != nil {
 		return nil, fmt.Errorf("list active alerts: %w", err)
 	}
@@ -207,10 +213,10 @@ ORDER BY created_at ASC, id ASC`, productID)
 
 func (s *SQLiteStore) MarkTriggered(ctx context.Context, alertID string, triggeredAt time.Time) error {
 	now := time.Now().UTC()
-	result, err := s.db.ExecContext(ctx, `
+	result, err := s.db.ExecContext(ctx, s.rebind(`
 UPDATE alerts
 SET last_triggered_at = ?, updated_at = ?
-WHERE id = ?`,
+WHERE id = ?`),
 		formatTime(triggeredAt),
 		formatTime(now),
 		alertID,
@@ -233,10 +239,10 @@ func (s *SQLiteStore) get(ctx context.Context, productID string, alertID string)
 		return Alert{}, err
 	}
 
-	row := s.db.QueryRowContext(ctx, `
+	row := s.db.QueryRowContext(ctx, s.rebind(`
 SELECT id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, last_triggered_at, created_at, updated_at
 FROM alerts
-WHERE product_id = ? AND id = ?`, productID, alertID)
+WHERE product_id = ? AND id = ?`), productID, alertID)
 
 	alert, err := scanAlert(row)
 	if err != nil {
@@ -249,7 +255,7 @@ func (s *SQLiteStore) ensureProductExists(ctx context.Context, productID string)
 	var id string
 	userID, ok := auth.UserIDFromContext(ctx)
 	if ok {
-		err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ? AND user_id = ?`, productID, userID).Scan(&id)
+		err := s.db.QueryRowContext(ctx, s.rebind(`SELECT id FROM products WHERE id = ? AND user_id = ?`), productID, userID).Scan(&id)
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -259,7 +265,7 @@ func (s *SQLiteStore) ensureProductExists(ctx context.Context, productID string)
 		return nil
 	}
 
-	err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ?`, productID).Scan(&id)
+	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT id FROM products WHERE id = ?`), productID).Scan(&id)
 	if err == sql.ErrNoRows {
 		return ErrNotFound
 	}
@@ -364,4 +370,8 @@ func newID() string {
 		panic(fmt.Sprintf("generate alert id: %v", err))
 	}
 	return hex.EncodeToString(bytes[:])
+}
+
+func (s *SQLiteStore) rebind(query string) string {
+	return db.Rebind(s.driver, query)
 }

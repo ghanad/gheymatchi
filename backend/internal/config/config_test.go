@@ -8,7 +8,9 @@ import (
 func TestLoadUsesDefaults(t *testing.T) {
 	t.Setenv("APP_ENV", "")
 	t.Setenv("HTTP_ADDR", "")
+	t.Setenv("DB_DRIVER", "")
 	t.Setenv("DB_PATH", "")
+	t.Setenv("DB_DSN", "")
 	t.Setenv("WORKER_INTERVAL", "")
 	t.Setenv("PRICE_FETCHER", "")
 	t.Setenv("PRICE_FETCH_TIMEOUT", "")
@@ -39,6 +41,9 @@ func TestLoadUsesDefaults(t *testing.T) {
 	}
 	if cfg.DatabasePath != "data/gheymatchi.db" {
 		t.Fatalf("DatabasePath = %q, want data/gheymatchi.db", cfg.DatabasePath)
+	}
+	if cfg.DatabaseDriver != "sqlite" {
+		t.Fatalf("DatabaseDriver = %q, want sqlite", cfg.DatabaseDriver)
 	}
 	if cfg.WorkerInterval != 5*time.Minute {
 		t.Fatalf("WorkerInterval = %s, want 5m", cfg.WorkerInterval)
@@ -77,6 +82,25 @@ func TestLoadRejectsInvalidDuration(t *testing.T) {
 
 func TestLoadRejectsInvalidNotificationAttempts(t *testing.T) {
 	t.Setenv("NOTIFICATION_MAX_ATTEMPTS", "nope")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() error = nil, want error")
+	}
+}
+
+func TestLoadRejectsUnsupportedDatabaseDriver(t *testing.T) {
+	t.Setenv("DB_DRIVER", "mysql")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() error = nil, want error")
+	}
+}
+
+func TestLoadRequiresPostgresDSN(t *testing.T) {
+	t.Setenv("DB_DRIVER", "postgres")
+	t.Setenv("DB_DSN", "")
 
 	_, err := Load()
 	if err == nil {

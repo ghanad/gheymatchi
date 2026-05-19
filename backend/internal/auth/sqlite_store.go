@@ -9,14 +9,21 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"gheymatchi/backend/internal/db"
 )
 
 type SQLiteStore struct {
-	db *sql.DB
+	db     *sql.DB
+	driver db.Driver
 }
 
 func NewSQLiteStore(db *sql.DB) *SQLiteStore {
-	return &SQLiteStore{db: db}
+	return NewStore(db, "sqlite")
+}
+
+func NewStore(database *sql.DB, driver db.Driver) *SQLiteStore {
+	return &SQLiteStore{db: database, driver: driver}
 }
 
 func (s *SQLiteStore) Register(ctx context.Context, input RegisterInput) (AuthenticatedSession, error) {
@@ -42,9 +49,9 @@ func (s *SQLiteStore) Register(ctx context.Context, input RegisterInput) (Authen
 		}
 	}()
 
-	_, err = tx.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, s.rebind(`
 INSERT INTO users (id, email, password_hash, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?, ?)`),
 		user.ID,
 		user.Email,
 		passwordHash,
@@ -58,7 +65,7 @@ VALUES (?, ?, ?, ?, ?)`,
 		return AuthenticatedSession{}, fmt.Errorf("create user: %w", err)
 	}
 
-	session, err := createSession(ctx, tx, user)
+	session, err := createSession(ctx, tx, s.driver, user)
 	if err != nil {
 		return AuthenticatedSession{}, err
 	}
@@ -75,10 +82,10 @@ func (s *SQLiteStore) Login(ctx context.Context, input LoginInput) (Authenticate
 		return AuthenticatedSession{}, err
 	}
 
-	row := s.db.QueryRowContext(ctx, `
+	row := s.db.QueryRowContext(ctx, s.rebind(`
 SELECT id, email, password_hash, created_at, updated_at
 FROM users
-WHERE email = ?`, normalized.Email)
+WHERE email = ?`), normalized.Email)
 
 	var user User
 	var passwordHash string
@@ -103,7 +110,7 @@ WHERE email = ?`, normalized.Email)
 		return AuthenticatedSession{}, err
 	}
 
-	session, err := createSession(ctx, s.db, user)
+	session, err := createSession(ctx, s.db, s.driver, user)
 	if err != nil {
 		return AuthenticatedSession{}, err
 	}
@@ -116,11 +123,11 @@ func (s *SQLiteStore) AuthenticateToken(ctx context.Context, token string) (User
 		return User{}, ErrUnauthenticated
 	}
 	hash := hashToken(token)
-	row := s.db.QueryRowContext(ctx, `
+	row := s.db.QueryRowContext(ctx, s.rebind(`
 SELECT users.id, users.email, users.created_at, users.updated_at
 FROM sessions
 JOIN users ON users.id = sessions.user_id
-WHERE sessions.token_hash = ?`, hash)
+WHERE sessions.token_hash = ?`), hash)
 
 	var user User
 	var createdAt string
@@ -147,7 +154,7 @@ func (s *SQLiteStore) Logout(ctx context.Context, token string) error {
 	if strings.TrimSpace(token) == "" {
 		return nil
 	}
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE token_hash = ?`, hashToken(token)); err != nil {
+	if _, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM sessions WHERE token_hash = ?`), hashToken(token)); err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
 	return nil
@@ -157,15 +164,15 @@ type sessionExecer interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
-func createSession(ctx context.Context, execer sessionExecer, user User) (AuthenticatedSession, error) {
+func createSession(ctx context.Context, execer sessionExecer, driver db.Driver, user User) (AuthenticatedSession, error) {
 	token, err := newToken()
 	if err != nil {
 		return AuthenticatedSession{}, err
 	}
 	now := time.Now().UTC()
-	_, err = execer.ExecContext(ctx, `
+	_, err = execer.ExecContext(ctx, db.Rebind(driver, `
 INSERT INTO sessions (id, user_id, token_hash, created_at)
-VALUES (?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?)`),
 		newID(),
 		user.ID,
 		hashToken(token),
@@ -208,4 +215,8 @@ func newID() string {
 		panic(fmt.Sprintf("generate auth id: %v", err))
 	}
 	return hex.EncodeToString(bytes[:])
+}
+
+func (s *SQLiteStore) rebind(query string) string {
+	return db.Rebind(s.driver, query)
 }

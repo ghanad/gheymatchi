@@ -10,7 +10,9 @@ import (
 type Config struct {
 	Env                     string
 	HTTPAddr                string
+	DatabaseDriver          string
 	DatabasePath            string
+	DatabaseDSN             string
 	WorkerInterval          time.Duration
 	PriceFetcher            string
 	PriceFetchTimeout       time.Duration
@@ -33,7 +35,9 @@ func Load() (Config, error) {
 	cfg := Config{
 		Env:                     getenv("APP_ENV", "local"),
 		HTTPAddr:                getenv("HTTP_ADDR", ":8080"),
+		DatabaseDriver:          getenv("DB_DRIVER", "sqlite"),
 		DatabasePath:            getenv("DB_PATH", "data/gheymatchi.db"),
+		DatabaseDSN:             getenv("DB_DSN", ""),
 		WorkerInterval:          5 * time.Minute,
 		PriceFetcher:            getenv("PRICE_FETCHER", "mock"),
 		PriceFetchTimeout:       10 * time.Second,
@@ -53,6 +57,12 @@ func Load() (Config, error) {
 	}
 
 	var err error
+	if cfg.DatabaseDriver != "sqlite" && cfg.DatabaseDriver != "postgres" {
+		return Config{}, fmt.Errorf("DB_DRIVER must be sqlite or postgres")
+	}
+	if cfg.DatabaseDriver == "postgres" && cfg.DatabaseDSN == "" {
+		return Config{}, fmt.Errorf("DB_DSN is required when DB_DRIVER=postgres")
+	}
 	if cfg.WorkerInterval, err = durationFromEnv("WORKER_INTERVAL", cfg.WorkerInterval); err != nil {
 		return Config{}, err
 	}

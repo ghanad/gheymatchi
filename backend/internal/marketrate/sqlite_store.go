@@ -7,14 +7,21 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"gheymatchi/backend/internal/db"
 )
 
 type SQLiteStore struct {
-	db *sql.DB
+	db     *sql.DB
+	driver db.Driver
 }
 
 func NewSQLiteStore(db *sql.DB) *SQLiteStore {
-	return &SQLiteStore{db: db}
+	return NewStore(db, "sqlite")
+}
+
+func NewStore(database *sql.DB, driver db.Driver) *SQLiteStore {
+	return &SQLiteStore{db: database, driver: driver}
 }
 
 func (s *SQLiteStore) Create(ctx context.Context, input CreateInput) (MarketRate, error) {
@@ -33,9 +40,9 @@ func (s *SQLiteStore) Create(ctx context.Context, input CreateInput) (MarketRate
 		CreatedAt:  now,
 	}
 
-	_, err = s.db.ExecContext(ctx, `INSERT INTO market_rates
+	_, err = s.db.ExecContext(ctx, s.rebind(`INSERT INTO market_rates
 (id, rate_type, unit, value_text, observed_at, created_at)
-VALUES (?, ?, ?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?, ?, ?)`),
 		rate.ID,
 		rate.RateType,
 		rate.Unit,
@@ -90,11 +97,11 @@ func (s *SQLiteStore) History(ctx context.Context, rateType *string) ([]MarketRa
 		if normalizeErr != nil {
 			return nil, normalizeErr
 		}
-		rows, err = s.db.QueryContext(ctx, `
+		rows, err = s.db.QueryContext(ctx, s.rebind(`
 SELECT id, rate_type, unit, value_text, observed_at, created_at
 FROM market_rates
 WHERE rate_type = ?
-ORDER BY observed_at DESC, id DESC`, normalized)
+ORDER BY observed_at DESC, id DESC`), normalized)
 	} else {
 		rows, err = s.db.QueryContext(ctx, `
 SELECT id, rate_type, unit, value_text, observed_at, created_at
@@ -122,12 +129,12 @@ ORDER BY observed_at DESC, id DESC`)
 }
 
 func (s *SQLiteStore) latestByType(ctx context.Context, rateType string) (MarketRate, error) {
-	row := s.db.QueryRowContext(ctx, `
+	row := s.db.QueryRowContext(ctx, s.rebind(`
 SELECT id, rate_type, unit, value_text, observed_at, created_at
 FROM market_rates
 WHERE rate_type = ?
 ORDER BY observed_at DESC, id DESC
-LIMIT 1`, rateType)
+LIMIT 1`), rateType)
 
 	return scanMarketRate(row)
 }
@@ -186,4 +193,8 @@ func newID() string {
 		panic(fmt.Sprintf("generate market rate id: %v", err))
 	}
 	return hex.EncodeToString(bytes[:])
+}
+
+func (s *SQLiteStore) rebind(query string) string {
+	return db.Rebind(s.driver, query)
 }

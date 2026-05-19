@@ -1,6 +1,6 @@
 # PostgreSQL Migration Plan
 
-GheymatChi still uses SQLite for the local MVP. This document records the current SQLite assumptions and the changes needed before a future PostgreSQL migration. It does not add PostgreSQL as a runtime dependency.
+GheymatChi still uses SQLite as the default local MVP database. Phase 24 adds an opt-in PostgreSQL runtime path for local validation without replacing the SQLite flow.
 
 ## Current Schema Review
 
@@ -124,18 +124,45 @@ Business logic remains database-agnostic:
 - Worker logic depends on small interfaces for source listing, price creation, crawl tracking, alert evaluation, and notification processing.
 - Domain validation uses Go types and decimal-safe parsing, not SQLite-specific behavior.
 
+## Implemented Phase 24 Path
+
+Configuration:
+
+- `DB_DRIVER=sqlite` keeps the existing SQLite path and remains the default.
+- `DB_DRIVER=postgres` opens PostgreSQL through `DB_DSN`.
+- `DB_DSN` is required only for PostgreSQL.
+- `DB_PATH` is still used only by SQLite.
+
+Migration layout:
+
+- SQLite migrations remain in `backend/migrations`.
+- PostgreSQL migrations live separately in `backend/postgres_migrations`.
+- The migration command selects the migration directory from `DB_DRIVER`.
+- Store implementations keep database-specific placeholder binding isolated behind the existing repository constructors.
+
+Docker Compose:
+
+- `docker compose up --build` still starts the SQLite stack.
+- PostgreSQL is available through profile-specific service names:
+
+```sh
+docker compose --profile postgres up --build postgres migrate-postgres api-postgres frontend-postgres worker-postgres
+```
+
+This command starts PostgreSQL, applies PostgreSQL migrations, then starts API, frontend, and worker services wired to PostgreSQL.
+
+The first PostgreSQL schema intentionally preserves the current application contract: text IDs, text timestamp storage, integer boolean flags, integer IRR prices, and decimal-safe text values. This keeps the runtime path small and avoids changing API or repository behavior during the migration-enablement phase. A later cleanup phase can convert timestamps to `TIMESTAMPTZ`, booleans to `BOOLEAN`, and decimal text values to `NUMERIC` after data conversion rules are explicit.
+
 ## Migration Path
 
-1. Keep the SQLite schema as the source of truth until a dedicated PostgreSQL phase.
-2. Add a PostgreSQL connection package beside the SQLite opener instead of replacing `backend/internal/db/db.go` immediately.
-3. Add PostgreSQL migrations in a separate directory, for example `backend/postgres_migrations`, so SQLite migrations remain runnable for local MVP development.
-4. Create PostgreSQL store implementations behind the existing domain interfaces.
-5. Add integration tests for PostgreSQL stores while keeping SQLite tests.
-6. Add a one-time data migration command that reads SQLite rows and writes PostgreSQL rows with explicit type conversions.
-7. Run both implementations against the same business-level store tests where practical.
-8. Switch Docker Compose to PostgreSQL only in the future phase that explicitly introduces PostgreSQL.
+1. Keep the SQLite schema and SQLite migrations runnable for local MVP development.
+2. Keep PostgreSQL migrations in `backend/postgres_migrations`.
+3. Continue using the existing store interfaces and driver-specific placeholder binding.
+4. Add PostgreSQL integration tests when CI or local test setup can provide a PostgreSQL service.
+5. Add a one-time data migration command later if existing SQLite data needs to be moved into PostgreSQL.
+6. Convert PostgreSQL-only column types later only after data conversion rules are explicit.
 
-## Initial PostgreSQL Type Mapping
+## Future PostgreSQL Type Mapping
 
 | Current SQLite shape | PostgreSQL first target | Notes |
 | --- | --- | --- |

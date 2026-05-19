@@ -9,15 +9,21 @@ import (
 	"time"
 
 	"gheymatchi/backend/internal/auth"
+	"gheymatchi/backend/internal/db"
 	"gheymatchi/backend/internal/marketrate"
 )
 
 type SQLiteStore struct {
-	db *sql.DB
+	db     *sql.DB
+	driver db.Driver
 }
 
 func NewSQLiteStore(db *sql.DB) *SQLiteStore {
-	return &SQLiteStore{db: db}
+	return NewStore(db, "sqlite")
+}
+
+func NewStore(database *sql.DB, driver db.Driver) *SQLiteStore {
+	return &SQLiteStore{db: database, driver: driver}
 }
 
 func (s *SQLiteStore) Create(ctx context.Context, productID string, productSourceID string, input CreateInput) (PricePoint, error) {
@@ -45,9 +51,9 @@ func (s *SQLiteStore) Create(ctx context.Context, productID string, productSourc
 		return PricePoint{}, err
 	}
 
-	_, err = s.db.ExecContext(ctx, `INSERT INTO price_points
+	_, err = s.db.ExecContext(ctx, s.rebind(`INSERT INTO price_points
 (id, product_id, product_source_id, price_irr, usd_irr_rate_value_text, gold_gram_irr_rate_value_text, price_usd, price_gold_gram, captured_at, raw_payload, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
 		pricePoint.ID,
 		pricePoint.ProductID,
 		pricePoint.ProductSourceID,
@@ -72,11 +78,11 @@ func (s *SQLiteStore) ListByProduct(ctx context.Context, productID string) ([]Pr
 		return nil, err
 	}
 
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
 SELECT id, product_id, product_source_id, price_irr, usd_irr_rate_value_text, gold_gram_irr_rate_value_text, price_usd, price_gold_gram, captured_at, raw_payload, created_at
 FROM price_points
 WHERE product_id = ?
-ORDER BY captured_at ASC, id ASC`, productID)
+ORDER BY captured_at ASC, id ASC`), productID)
 	if err != nil {
 		return nil, fmt.Errorf("list price points: %w", err)
 	}
@@ -128,10 +134,10 @@ func (s *SQLiteStore) attachDerivedPrices(ctx context.Context, pricePoint *Price
 }
 
 func (s *SQLiteStore) latestRateAt(ctx context.Context, rateType string, capturedAt time.Time) (*string, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
 SELECT id, value_text, observed_at
 FROM market_rates
-WHERE rate_type = ?`, rateType)
+WHERE rate_type = ?`), rateType)
 	if err != nil {
 		return nil, fmt.Errorf("load %s rate for price point: %w", rateType, err)
 	}
@@ -172,7 +178,7 @@ func (s *SQLiteStore) ensureProduct(ctx context.Context, productID string) error
 	var id string
 	userID, ok := auth.UserIDFromContext(ctx)
 	if ok {
-		err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ? AND user_id = ?`, productID, userID).Scan(&id)
+		err := s.db.QueryRowContext(ctx, s.rebind(`SELECT id FROM products WHERE id = ? AND user_id = ?`), productID, userID).Scan(&id)
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -182,7 +188,7 @@ func (s *SQLiteStore) ensureProduct(ctx context.Context, productID string) error
 		return nil
 	}
 
-	err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ?`, productID).Scan(&id)
+	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT id FROM products WHERE id = ?`), productID).Scan(&id)
 	if err == sql.ErrNoRows {
 		return ErrNotFound
 	}
@@ -196,11 +202,11 @@ func (s *SQLiteStore) ensureProductSource(ctx context.Context, productID string,
 	var id string
 	userID, ok := auth.UserIDFromContext(ctx)
 	if ok {
-		err := s.db.QueryRowContext(ctx, `
+		err := s.db.QueryRowContext(ctx, s.rebind(`
 SELECT product_sources.id
 FROM product_sources
 JOIN products ON products.id = product_sources.product_id
-WHERE product_sources.product_id = ? AND product_sources.id = ? AND products.user_id = ?`, productID, productSourceID, userID).Scan(&id)
+WHERE product_sources.product_id = ? AND product_sources.id = ? AND products.user_id = ?`), productID, productSourceID, userID).Scan(&id)
 		if err == sql.ErrNoRows {
 			return ErrNotFound
 		}
@@ -210,7 +216,7 @@ WHERE product_sources.product_id = ? AND product_sources.id = ? AND products.use
 		return nil
 	}
 
-	err := s.db.QueryRowContext(ctx, `SELECT id FROM product_sources WHERE product_id = ? AND id = ?`, productID, productSourceID).Scan(&id)
+	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT id FROM product_sources WHERE product_id = ? AND id = ?`), productID, productSourceID).Scan(&id)
 	if err == sql.ErrNoRows {
 		return ErrNotFound
 	}
@@ -306,4 +312,8 @@ func newID() string {
 		panic(fmt.Sprintf("generate price point id: %v", err))
 	}
 	return hex.EncodeToString(bytes[:])
+}
+
+func (s *SQLiteStore) rebind(query string) string {
+	return db.Rebind(s.driver, query)
 }

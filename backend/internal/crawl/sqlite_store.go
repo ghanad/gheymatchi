@@ -7,14 +7,21 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"gheymatchi/backend/internal/db"
 )
 
 type SQLiteStore struct {
-	db *sql.DB
+	db     *sql.DB
+	driver db.Driver
 }
 
 func NewSQLiteStore(db *sql.DB) *SQLiteStore {
-	return &SQLiteStore{db: db}
+	return NewStore(db, "sqlite")
+}
+
+func NewStore(database *sql.DB, driver db.Driver) *SQLiteStore {
+	return &SQLiteStore{db: database, driver: driver}
 }
 
 func (s *SQLiteStore) Start(ctx context.Context, sourceID string) (Run, error) {
@@ -27,9 +34,9 @@ func (s *SQLiteStore) Start(ctx context.Context, sourceID string) (Run, error) {
 		CreatedAt: now,
 	}
 
-	_, err := s.db.ExecContext(ctx, `
+	_, err := s.db.ExecContext(ctx, s.rebind(`
 INSERT INTO crawl_runs (id, source_id, status, started_at, created_at)
-VALUES (?, ?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?, ?)`),
 		run.ID,
 		run.SourceID,
 		run.Status,
@@ -45,10 +52,10 @@ VALUES (?, ?, ?, ?, ?)`,
 
 func (s *SQLiteStore) Finish(ctx context.Context, id string, status string, errorMessage *string) error {
 	finishedAt := time.Now().UTC()
-	result, err := s.db.ExecContext(ctx, `
+	result, err := s.db.ExecContext(ctx, s.rebind(`
 UPDATE crawl_runs
 SET status = ?, finished_at = ?, error_message = ?
-WHERE id = ?`,
+WHERE id = ?`),
 		status,
 		formatTime(finishedAt),
 		nullStringPtr(errorMessage),
@@ -84,4 +91,8 @@ func newID() string {
 		panic(fmt.Sprintf("generate crawl run id: %v", err))
 	}
 	return hex.EncodeToString(bytes[:])
+}
+
+func (s *SQLiteStore) rebind(query string) string {
+	return db.Rebind(s.driver, query)
 }

@@ -52,17 +52,26 @@ func LoadMigrations(files fs.FS) ([]Migration, error) {
 }
 
 func ApplyMigrations(ctx context.Context, database *sql.DB, migrations []Migration) error {
+	return ApplyMigrationsForDriver(ctx, database, DriverSQLite, migrations)
+}
+
+func ApplyMigrationsForDriver(ctx context.Context, database *sql.DB, driver Driver, migrations []Migration) error {
+	appliedAtType := "TEXT"
+	if driver == DriverPostgres {
+		appliedAtType = "TIMESTAMPTZ"
+	}
+
 	if _, err := database.ExecContext(ctx, `
 CREATE TABLE IF NOT EXISTS schema_migrations (
 	name TEXT PRIMARY KEY,
 	checksum TEXT NOT NULL,
-	applied_at TEXT NOT NULL
+	applied_at `+appliedAtType+` NOT NULL
 )`); err != nil {
 		return fmt.Errorf("ensure schema_migrations: %w", err)
 	}
 
 	for _, migration := range migrations {
-		if err := applyMigration(ctx, database, migration); err != nil {
+		if err := applyMigration(ctx, database, driver, migration); err != nil {
 			return err
 		}
 	}
@@ -70,7 +79,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 	return nil
 }
 
-func applyMigration(ctx context.Context, database *sql.DB, migration Migration) error {
+func applyMigration(ctx context.Context, database *sql.DB, driver Driver, migration Migration) error {
 	tx, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin migration %s: %w", migration.Name, err)
@@ -83,7 +92,7 @@ func applyMigration(ctx context.Context, database *sql.DB, migration Migration) 
 	}()
 
 	var existingChecksum string
-	err = tx.QueryRowContext(ctx, "SELECT checksum FROM schema_migrations WHERE name = ?", migration.Name).Scan(&existingChecksum)
+	err = tx.QueryRowContext(ctx, Rebind(driver, "SELECT checksum FROM schema_migrations WHERE name = ?"), migration.Name).Scan(&existingChecksum)
 	if err == nil {
 		if existingChecksum != migration.Checksum {
 			return fmt.Errorf("migration %s checksum mismatch", migration.Name)
@@ -104,10 +113,10 @@ func applyMigration(ctx context.Context, database *sql.DB, migration Migration) 
 
 	if _, err = tx.ExecContext(
 		ctx,
-		"INSERT INTO schema_migrations (name, checksum, applied_at) VALUES (?, ?, ?)",
+		Rebind(driver, "INSERT INTO schema_migrations (name, checksum, applied_at) VALUES (?, ?, ?)"),
 		migration.Name,
 		migration.Checksum,
-		time.Now().UTC().Format(time.RFC3339),
+		migrationAppliedAt(driver),
 	); err != nil {
 		return fmt.Errorf("record migration %s: %w", migration.Name, err)
 	}
@@ -117,4 +126,30 @@ func applyMigration(ctx context.Context, database *sql.DB, migration Migration) 
 	}
 	committed = true
 	return nil
+}
+
+func Rebind(driver Driver, query string) string {
+	if driver != DriverPostgres {
+		return query
+	}
+
+	var builder strings.Builder
+	arg := 1
+	for _, r := range query {
+		if r == '?' {
+			builder.WriteString(fmt.Sprintf("$%d", arg))
+			arg++
+			continue
+		}
+		builder.WriteRune(r)
+	}
+	return builder.String()
+}
+
+func migrationAppliedAt(driver Driver) any {
+	now := time.Now().UTC()
+	if driver == DriverPostgres {
+		return now
+	}
+	return now.Format(time.RFC3339)
 }

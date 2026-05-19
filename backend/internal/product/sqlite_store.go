@@ -9,14 +9,20 @@ import (
 	"time"
 
 	"gheymatchi/backend/internal/auth"
+	"gheymatchi/backend/internal/db"
 )
 
 type SQLiteStore struct {
-	db *sql.DB
+	db     *sql.DB
+	driver db.Driver
 }
 
 func NewSQLiteStore(db *sql.DB) *SQLiteStore {
-	return &SQLiteStore{db: db}
+	return NewStore(db, "sqlite")
+}
+
+func NewStore(database *sql.DB, driver db.Driver) *SQLiteStore {
+	return &SQLiteStore{db: database, driver: driver}
 }
 
 func (s *SQLiteStore) Create(ctx context.Context, userID string, input CreateInput) (Product, error) {
@@ -37,7 +43,7 @@ func (s *SQLiteStore) Create(ctx context.Context, userID string, input CreateInp
 
 	_, err = s.db.ExecContext(
 		ctx,
-		`INSERT INTO products (id, user_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		s.rebind(`INSERT INTO products (id, user_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`),
 		product.ID,
 		userID,
 		product.Name,
@@ -57,11 +63,11 @@ func (s *SQLiteStore) List(ctx context.Context) ([]Product, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
 SELECT id, user_id, name, description, created_at, updated_at
 FROM products
 WHERE user_id = ?
-ORDER BY created_at DESC, id DESC`, userID)
+ORDER BY created_at DESC, id DESC`), userID)
 	if err != nil {
 		return nil, fmt.Errorf("list products: %w", err)
 	}
@@ -87,10 +93,10 @@ func (s *SQLiteStore) Get(ctx context.Context, id string) (Product, error) {
 	if err != nil {
 		return Product{}, err
 	}
-	row := s.db.QueryRowContext(ctx, `
+	row := s.db.QueryRowContext(ctx, s.rebind(`
 SELECT id, user_id, name, description, created_at, updated_at
 FROM products
-WHERE id = ? AND user_id = ?`, id, userID)
+WHERE id = ? AND user_id = ?`), id, userID)
 
 	product, err := scanProduct(row)
 	if err != nil {
@@ -124,7 +130,7 @@ func (s *SQLiteStore) Update(ctx context.Context, id string, input UpdateInput) 
 	}
 	result, err := s.db.ExecContext(
 		ctx,
-		`UPDATE products SET name = ?, description = ?, updated_at = ? WHERE id = ? AND user_id = ?`,
+		s.rebind(`UPDATE products SET name = ?, description = ?, updated_at = ? WHERE id = ? AND user_id = ?`),
 		existing.Name,
 		nullString(existing.Description),
 		formatTime(existing.UpdatedAt),
@@ -150,7 +156,7 @@ func (s *SQLiteStore) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `DELETE FROM products WHERE id = ? AND user_id = ?`, id, userID)
+	result, err := s.db.ExecContext(ctx, s.rebind(`DELETE FROM products WHERE id = ? AND user_id = ?`), id, userID)
 	if err != nil {
 		return fmt.Errorf("delete product: %w", err)
 	}
@@ -225,4 +231,8 @@ func newID() string {
 		panic(fmt.Sprintf("generate product id: %v", err))
 	}
 	return hex.EncodeToString(bytes[:])
+}
+
+func (s *SQLiteStore) rebind(query string) string {
+	return db.Rebind(s.driver, query)
 }

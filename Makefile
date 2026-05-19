@@ -1,7 +1,7 @@
 ROOT_DIR := $(CURDIR)
 GO_ENV := GOCACHE=$(ROOT_DIR)/.cache/go-build
 
-.PHONY: api worker migrate seed test frontend-install frontend docker-migrate docker-seed docker-up docker-down
+.PHONY: api worker migrate seed test frontend-install frontend docker-migrate docker-seed docker-up docker-postgres-up docker-down
 
 api:
 	cd backend && $(GO_ENV) DB_PATH=../data/gheymatchi.db go run ./cmd/api
@@ -32,6 +32,9 @@ docker-seed: docker-migrate
 
 docker-up:
 	docker compose up --build
+
+docker-postgres-up:
+	docker compose --profile postgres up --build postgres migrate-postgres api-postgres frontend-postgres worker-postgres
 
 docker-down:
 	docker compose down

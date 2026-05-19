@@ -33,7 +33,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 
-	database, err := db.Open(ctx, cfg.DatabasePath)
+	database, err := db.OpenConfigured(ctx, cfg.DatabaseDriver, cfg.DatabasePath, cfg.DatabaseDSN)
 	if err != nil {
 		logger.Error("open database", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -56,16 +56,16 @@ func main() {
 	}
 
 	runner := worker.NewRunner(
-		source.NewSQLiteStore(database),
-		price.NewSQLiteStore(database),
-		crawl.NewSQLiteStore(database),
-		alert.NewEvaluator(alert.NewSQLiteStore(database), notificationStore),
+		source.NewStore(database, db.Driver(cfg.DatabaseDriver)),
+		price.NewStore(database, db.Driver(cfg.DatabaseDriver)),
+		crawl.NewStore(database, db.Driver(cfg.DatabaseDriver)),
+		alert.NewEvaluator(alert.NewStore(database, db.Driver(cfg.DatabaseDriver)), notificationStore),
 		notification.NewProcessor(notificationStore, notificationSender, cfg.NotificationMaxAttempts),
 		fetcher,
 		logger,
 	)
 
-	logger.Info("worker started", slog.Duration("interval", cfg.WorkerInterval), slog.String("database_path", cfg.DatabasePath))
+	logger.Info("worker started", slog.Duration("interval", cfg.WorkerInterval), slog.String("database_driver", cfg.DatabaseDriver))
 	if err := runner.Run(runCtx, cfg.WorkerInterval); err != nil && !errors.Is(err, context.Canceled) {
 		logger.Error("worker stopped", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -75,10 +75,11 @@ func main() {
 
 func buildNotificationPipeline(cfg config.Config, logger *slog.Logger, database *sql.DB) (*notification.SQLiteStore, notification.Sender, error) {
 	dryRun := notification.NewDryRunSender(logger)
+	driver := db.Driver(cfg.DatabaseDriver)
 
 	switch strings.ToLower(strings.TrimSpace(cfg.NotificationProvider)) {
 	case "", "dry_run":
-		store := notification.NewSQLiteStoreWithDefaults(database, notification.ChannelDryRun, "")
+		store := notification.NewStoreWithDefaults(database, driver, notification.ChannelDryRun, "")
 		return store, dryRun, nil
 	case "smtp":
 		smtpSender, err := notification.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFrom)
@@ -88,7 +89,7 @@ func buildNotificationPipeline(cfg config.Config, logger *slog.Logger, database 
 		if strings.TrimSpace(cfg.NotificationEmailTo) == "" {
 			return nil, nil, errors.New("NOTIFICATION_EMAIL_TO is required when NOTIFICATION_PROVIDER=smtp")
 		}
-		store := notification.NewSQLiteStoreWithDefaults(database, notification.ChannelEmail, cfg.NotificationEmailTo)
+		store := notification.NewStoreWithDefaults(database, driver, notification.ChannelEmail, cfg.NotificationEmailTo)
 		return store, notification.NewRoutingSender(dryRun, smtpSender, logger), nil
 	default:
 		return nil, nil, errors.New("NOTIFICATION_PROVIDER must be dry_run or smtp")

@@ -9,10 +9,33 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 )
 
+type Driver string
+
+const (
+	DriverSQLite   Driver = "sqlite"
+	DriverPostgres Driver = "postgres"
+)
+
 func Open(ctx context.Context, path string) (*sql.DB, error) {
+	return OpenSQLite(ctx, path)
+}
+
+func OpenConfigured(ctx context.Context, driver string, path string, dsn string) (*sql.DB, error) {
+	switch Driver(strings.ToLower(strings.TrimSpace(driver))) {
+	case "", DriverSQLite:
+		return OpenSQLite(ctx, path)
+	case DriverPostgres:
+		return OpenPostgres(ctx, dsn)
+	default:
+		return nil, fmt.Errorf("unsupported database driver %q", driver)
+	}
+}
+
+func OpenSQLite(ctx context.Context, path string) (*sql.DB, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, fmt.Errorf("database path is required")
 	}
@@ -33,6 +56,28 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 	if err := configure(ctx, database); err != nil {
 		_ = database.Close()
 		return nil, err
+	}
+
+	return database, nil
+}
+
+func OpenPostgres(ctx context.Context, dsn string) (*sql.DB, error) {
+	if strings.TrimSpace(dsn) == "" {
+		return nil, fmt.Errorf("postgres dsn is required")
+	}
+
+	database, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open postgres database: %w", err)
+	}
+
+	database.SetMaxOpenConns(10)
+	database.SetMaxIdleConns(5)
+	database.SetConnMaxLifetime(time.Hour)
+
+	if err := database.PingContext(ctx); err != nil {
+		_ = database.Close()
+		return nil, fmt.Errorf("ping postgres database: %w", err)
 	}
 
 	return database, nil

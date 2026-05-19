@@ -36,3 +36,17 @@ func TestApplyMigrationsCanRunRepeatedly(t *testing.T) {
 		t.Fatalf("products table missing: %v", err)
 	}
 }
+
+func TestRebindPostgresPlaceholders(t *testing.T) {
+	query := Rebind(DriverPostgres, "SELECT * FROM products WHERE id = ? AND user_id = ?")
+	if query != "SELECT * FROM products WHERE id = $1 AND user_id = $2" {
+		t.Fatalf("Rebind() = %q", query)
+	}
+}
+
+func TestRebindLeavesSQLitePlaceholders(t *testing.T) {
+	query := Rebind(DriverSQLite, "SELECT * FROM products WHERE id = ?")
+	if query != "SELECT * FROM products WHERE id = ?" {
+		t.Fatalf("Rebind() = %q", query)
+	}
+}

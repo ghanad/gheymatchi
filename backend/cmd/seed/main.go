@@ -30,29 +30,34 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	database, err := db.Open(ctx, cfg.DatabasePath)
+	database, err := db.OpenConfigured(ctx, cfg.DatabaseDriver, cfg.DatabasePath, cfg.DatabaseDSN)
 	if err != nil {
 		logger.Error("open database", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 	defer database.Close()
 
-	migrations, err := db.LoadMigrations(os.DirFS("migrations"))
+	migrationDir := "migrations"
+	if cfg.DatabaseDriver == string(db.DriverPostgres) {
+		migrationDir = "postgres_migrations"
+	}
+	migrations, err := db.LoadMigrations(os.DirFS(migrationDir))
 	if err != nil {
 		logger.Error("load migrations", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	if err := db.ApplyMigrations(ctx, database, migrations); err != nil {
+	if err := db.ApplyMigrationsForDriver(ctx, database, db.Driver(cfg.DatabaseDriver), migrations); err != nil {
 		logger.Error("apply migrations", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	productStore := product.NewSQLiteStore(database)
-	sourceStore := source.NewSQLiteStore(database)
-	priceStore := price.NewSQLiteStore(database)
-	rateStore := marketrate.NewSQLiteStore(database)
-	alertStore := alert.NewSQLiteStore(database)
-	authStore := auth.NewSQLiteStore(database)
+	driver := db.Driver(cfg.DatabaseDriver)
+	productStore := product.NewStore(database, driver)
+	sourceStore := source.NewStore(database, driver)
+	priceStore := price.NewStore(database, driver)
+	rateStore := marketrate.NewStore(database, driver)
+	alertStore := alert.NewStore(database, driver)
+	authStore := auth.NewStore(database, driver)
 
 	demoUser, err := ensureDemoUser(ctx, authStore)
 	if err != nil {
@@ -93,7 +98,7 @@ func main() {
 
 	logger.Info(
 		"seed complete",
-		slog.String("database_path", cfg.DatabasePath),
+		slog.String("database_driver", cfg.DatabaseDriver),
 		slog.Bool("created_product", createdProduct),
 		slog.Bool("created_source", createdSource),
 		slog.Int("created_market_rates", createdRates),

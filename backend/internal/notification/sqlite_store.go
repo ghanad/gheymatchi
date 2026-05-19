@@ -9,24 +9,34 @@ import (
 	"time"
 
 	"gheymatchi/backend/internal/alert"
+	"gheymatchi/backend/internal/db"
 	"gheymatchi/backend/internal/price"
 )
 
 type SQLiteStore struct {
 	db               *sql.DB
+	driver           db.Driver
 	defaultChannel   string
 	defaultRecipient string
 }
 
 func NewSQLiteStore(db *sql.DB) *SQLiteStore {
-	return &SQLiteStore{db: db, defaultChannel: ChannelDryRun}
+	return NewStore(db, "sqlite")
+}
+
+func NewStore(database *sql.DB, driver db.Driver) *SQLiteStore {
+	return &SQLiteStore{db: database, driver: driver, defaultChannel: ChannelDryRun}
 }
 
 func NewSQLiteStoreWithDefaults(db *sql.DB, channel string, recipient string) *SQLiteStore {
+	return NewStoreWithDefaults(db, "sqlite", channel, recipient)
+}
+
+func NewStoreWithDefaults(database *sql.DB, driver db.Driver, channel string, recipient string) *SQLiteStore {
 	if channel == "" {
 		channel = ChannelDryRun
 	}
-	return &SQLiteStore{db: db, defaultChannel: channel, defaultRecipient: recipient}
+	return &SQLiteStore{db: database, driver: driver, defaultChannel: channel, defaultRecipient: recipient}
 }
 
 func (s *SQLiteStore) CreateAlertTriggered(ctx context.Context, alert alert.Alert, pricePoint price.PricePoint) error {
@@ -39,9 +49,9 @@ func (s *SQLiteStore) CreateAlertTriggered(ctx context.Context, alert alert.Aler
 		recipient = alert.ProductID
 	}
 
-	_, err := s.db.ExecContext(ctx, `INSERT INTO notifications
+	_, err := s.db.ExecContext(ctx, s.rebind(`INSERT INTO notifications
 (id, alert_id, channel, recipient, status, created_at)
-VALUES (?, ?, ?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?, ?, ?)`),
 		newID(),
 		alert.ID,
 		s.defaultChannel,
@@ -69,12 +79,12 @@ ORDER BY created_at DESC, id DESC`)
 }
 
 func (s *SQLiteStore) ListForUser(ctx context.Context, userID string) ([]Notification, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
 SELECT notifications.id, notifications.alert_id, notifications.channel, notifications.recipient, notifications.status, notifications.attempt_count, notifications.last_error, notifications.sent_at, notifications.created_at
 FROM notifications
 JOIN alerts ON alerts.id = notifications.alert_id
 WHERE alerts.user_id = ?
-ORDER BY notifications.created_at DESC, notifications.id DESC`, userID)
+ORDER BY notifications.created_at DESC, notifications.id DESC`), userID)
 	if err != nil {
 		return nil, fmt.Errorf("list notifications: %w", err)
 	}
@@ -88,12 +98,12 @@ func (s *SQLiteStore) ListPending(ctx context.Context, limit int) ([]Notificatio
 		limit = 50
 	}
 
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.db.QueryContext(ctx, s.rebind(`
 SELECT id, alert_id, channel, recipient, status, attempt_count, last_error, sent_at, created_at
 FROM notifications
 WHERE status = ?
 ORDER BY created_at ASC, id ASC
-LIMIT ?`, StatusPending, limit)
+LIMIT ?`), StatusPending, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list pending notifications: %w", err)
 	}
@@ -103,10 +113,10 @@ LIMIT ?`, StatusPending, limit)
 }
 
 func (s *SQLiteStore) MarkSent(ctx context.Context, id string, sentAt time.Time) error {
-	result, err := s.db.ExecContext(ctx, `
+	result, err := s.db.ExecContext(ctx, s.rebind(`
 UPDATE notifications
 SET status = ?, sent_at = ?, last_error = NULL
-WHERE id = ?`, StatusSent, formatTime(sentAt), id)
+WHERE id = ?`), StatusSent, formatTime(sentAt), id)
 	if err != nil {
 		return fmt.Errorf("mark notification sent: %w", err)
 	}
@@ -117,12 +127,12 @@ func (s *SQLiteStore) RecordFailedAttempt(ctx context.Context, id string, messag
 	if maxAttempts <= 0 {
 		maxAttempts = 1
 	}
-	result, err := s.db.ExecContext(ctx, `
+	result, err := s.db.ExecContext(ctx, s.rebind(`
 UPDATE notifications
 SET attempt_count = attempt_count + 1,
 	last_error = ?,
 	status = CASE WHEN attempt_count + 1 >= ? THEN ? ELSE ? END
-WHERE id = ?`, message, maxAttempts, StatusFailed, StatusPending, id)
+WHERE id = ?`), message, maxAttempts, StatusFailed, StatusPending, id)
 	if err != nil {
 		return fmt.Errorf("record notification failed attempt: %w", err)
 	}
@@ -228,4 +238,8 @@ func newID() string {
 		panic(fmt.Sprintf("generate notification id: %v", err))
 	}
 	return hex.EncodeToString(bytes[:])
+}
+
+func (s *SQLiteStore) rebind(query string) string {
+	return db.Rebind(s.driver, query)
 }

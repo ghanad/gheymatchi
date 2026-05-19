@@ -96,6 +96,14 @@ Stop the Compose services:
 make docker-down
 ```
 
+To run the opt-in PostgreSQL stack added in Phase 24:
+
+```sh
+make docker-postgres-up
+```
+
+The default Compose stack still uses SQLite. PostgreSQL uses `DB_DRIVER=postgres` and `DB_DSN=postgres://gheymatchi:gheymatchi@postgres:5432/gheymatchi?sslmode=disable`.
+
 ## External Price Fetching
 
 The worker uses the deterministic mock fetcher by default for local development and Docker Compose. To opt into the Digikala adapter for a supported product URL, run the worker directly with:
@@ -128,7 +136,7 @@ With Docker Compose, pass those variables to the `worker` service through your s
 
 ## Current Phase
 
-Phase 22 adds optional SMTP email notifications while keeping dry-run notifications as the default.
+Phase 24 adds opt-in PostgreSQL connection support, PostgreSQL migrations, and Docker Compose services while keeping SQLite as the default local development database.
 
 The backend currently includes configuration loading from environment variables, structured logging, graceful shutdown, a local SQLite database at `data/gheymatchi.db`, and these endpoints:
 
@@ -154,4 +162,4 @@ The backend currently includes configuration loading from environment variables,
 - `GET /api/market-rates/history`
 - `GET /api/notifications`
 
-Product management UI, charts, manual market-rate storage, derived price display, alert rules, worker-side alert evaluation, a notification log, optional SMTP email notifications, and one opt-in real Digikala price source adapter are implemented. Multiple source adapters, broad scraping, SMS notification sending, and per-user notification routing are not implemented yet.
+Product management UI, charts, manual market-rate storage, derived price display, alert rules, worker-side alert evaluation, a notification log, optional SMTP email notifications, basic authentication, opt-in PostgreSQL support, and one opt-in real Digikala price source adapter are implemented. Multiple source adapters, broad scraping, SMS notification sending, and automated SQLite-to-PostgreSQL data copy are not implemented yet.
