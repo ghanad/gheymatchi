@@ -2,16 +2,31 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { createProduct, deleteProduct, fetchProducts, Product, ProductInput, updateProduct } from "../../lib/api";
+import {
+  createProduct,
+  createProductSource,
+  deleteProduct,
+  fetchProducts,
+  Product,
+  ProductInput,
+  updateProduct
+} from "../../lib/api";
 
-const emptyForm: ProductInput = {
+type ProductForm = ProductInput & {
+  source_name: "digikala";
+  source_url: string;
+};
+
+const emptyForm: ProductForm = {
   name: "",
-  description: ""
+  description: "",
+  source_name: "digikala",
+  source_url: ""
 };
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [form, setForm] = useState<ProductInput>(emptyForm);
+  const [form, setForm] = useState<ProductForm>(emptyForm);
   const [editingProductID, setEditingProductID] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -50,10 +65,24 @@ export default function ProductsPage() {
     try {
       setIsSaving(true);
       if (editingProductID) {
-        const updated = await updateProduct(editingProductID, form);
+        const updated = await updateProduct(editingProductID, {
+          name: form.name,
+          description: form.description
+        });
         setProducts((current) => current.map((product) => (product.id === updated.id ? updated : product)));
       } else {
-        const created = await createProduct(form);
+        if (!isDigikalaProductURL(form.source_url)) {
+          throw new Error("Digikala product URL must be from digikala.com and include a dkp product id");
+        }
+        const created = await createProduct({
+          name: form.name,
+          description: form.description
+        });
+        await createProductSource(created.id, {
+          source_name: form.source_name,
+          url: form.source_url,
+          is_active: true
+        });
         setProducts((current) => [created, ...current]);
       }
       resetForm();
@@ -82,13 +111,15 @@ export default function ProductsPage() {
     setEditingProductID(product.id);
     setForm({
       name: product.name,
-      description: product.description || ""
+      description: product.description || "",
+      source_name: "digikala",
+      source_url: ""
     });
   }
 
   function resetForm() {
     setEditingProductID(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm });
   }
 
   return (
@@ -121,6 +152,29 @@ export default function ProductsPage() {
                 placeholder="Optional notes"
               />
             </label>
+            {!editingProductID ? (
+              <>
+                <label className="field">
+                  <span>Source site</span>
+                  <select
+                    value={form.source_name}
+                    onChange={(event) => setForm({ ...form, source_name: event.target.value as "digikala" })}
+                    required
+                  >
+                    <option value="digikala">Digikala</option>
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Digikala product URL</span>
+                  <input
+                    value={form.source_url}
+                    onChange={(event) => setForm({ ...form, source_url: event.target.value })}
+                    placeholder="https://www.digikala.com/product/dkp-123456/"
+                    required
+                  />
+                </label>
+              </>
+            ) : null}
             <div className="button-row">
               <button type="submit" disabled={isSaving}>
                 {editingProductID ? "Save" : "Create"}
@@ -161,4 +215,19 @@ export default function ProductsPage() {
       </section>
     </>
   );
+}
+
+function isDigikalaProductURL(value: string) {
+  try {
+    const url = new URL(value.trim());
+    const host = url.hostname.toLowerCase();
+    return (
+      (host === "digikala.com" || host === "www.digikala.com") &&
+      url.pathname
+        .split("/")
+        .some((part) => /^dkp-\d+$/i.test(part))
+    );
+  } catch {
+    return false;
+  }
 }

@@ -149,7 +149,7 @@ func ensureDemoProduct(ctx context.Context, store product.Store) (product.Produc
 }
 
 func ensureDemoSource(ctx context.Context, store source.Store, productID string) (source.ProductSource, bool, error) {
-	const demoURL = "https://example.com/products/demo-phone"
+	const demoURL = "https://www.digikala.com/product/dkp-123456/demo-phone/"
 
 	sources, err := store.List(ctx, productID)
 	if err != nil {
@@ -164,7 +164,7 @@ func ensureDemoSource(ctx context.Context, store source.Store, productID string)
 	active := true
 	created, err := store.Create(ctx, productID, source.CreateInput{
 		URL:        demoURL,
-		SourceName: "demo",
+		SourceName: "digikala",
 		IsActive:   &active,
 	})
 	if err != nil {

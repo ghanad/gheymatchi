@@ -19,7 +19,7 @@ import { formatDateTime, formatDecimalText, formatIRR } from "../../../lib/forma
 
 const emptySourceForm: ProductSourceInput = {
   url: "",
-  source_name: "",
+  source_name: "digikala",
   is_active: true
 };
 
@@ -166,17 +166,19 @@ export default function ProductDetailPage() {
                 <input
                   value={form.url}
                   onChange={(event) => setForm({ ...form, url: event.target.value })}
-                  placeholder="https://example.com/product"
+                  placeholder="https://www.digikala.com/product/dkp-123456/"
                   required
                 />
               </label>
               <label className="field">
-                <span>Source name</span>
-                <input
+                <span>Source site</span>
+                <select
                   value={form.source_name || ""}
                   onChange={(event) => setForm({ ...form, source_name: event.target.value })}
-                  placeholder="digikala"
-                />
+                  required
+                >
+                  <option value="digikala">Digikala</option>
+                </select>
               </label>
               <label className="check-field">
                 <input

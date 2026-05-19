@@ -17,7 +17,7 @@ func TestSQLiteStoreCRUD(t *testing.T) {
 	ctx := context.Background()
 
 	created, err := store.Create(ctx, productID, CreateInput{
-		URL:        "https://example.com/products/phone",
+		URL:        "https://www.digikala.com/product/dkp-123456/",
 		SourceName: "Digikala",
 	})
 	if err != nil {
@@ -45,7 +45,7 @@ func TestSQLiteStoreCRUD(t *testing.T) {
 	}
 
 	active := false
-	name := "manual"
+	name := "digikala"
 	updated, err := store.Update(ctx, productID, created.ID, UpdateInput{
 		SourceName: &name,
 		IsActive:   &active,
@@ -53,8 +53,8 @@ func TestSQLiteStoreCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Update() error = %v", err)
 	}
-	if updated.SourceName != "manual" {
-		t.Fatalf("updated SourceName = %q, want manual", updated.SourceName)
+	if updated.SourceName != "digikala" {
+		t.Fatalf("updated SourceName = %q, want digikala", updated.SourceName)
 	}
 	if updated.IsActive {
 		t.Fatal("updated IsActive = true, want false")
@@ -88,12 +88,12 @@ func TestSQLiteStoreListActive(t *testing.T) {
 	store := NewSQLiteStore(database)
 	ctx := context.Background()
 
-	active, err := store.Create(ctx, productID, CreateInput{URL: "https://example.com/active"})
+	active, err := store.Create(ctx, productID, CreateInput{URL: "https://www.digikala.com/product/dkp-123456/"})
 	if err != nil {
 		t.Fatalf("Create() active error = %v", err)
 	}
 	inactiveFlag := false
-	if _, err := store.Create(ctx, productID, CreateInput{URL: "https://example.com/inactive", IsActive: &inactiveFlag}); err != nil {
+	if _, err := store.Create(ctx, productID, CreateInput{URL: "https://www.digikala.com/product/dkp-654321/", IsActive: &inactiveFlag}); err != nil {
 		t.Fatalf("Create() inactive error = %v", err)
 	}
 

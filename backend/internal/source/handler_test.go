@@ -14,7 +14,7 @@ func TestHandlerCreateSource(t *testing.T) {
 	mux := http.NewServeMux()
 	NewHandler(NewSQLiteStore(database)).Register(mux)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/products/"+productID+"/sources", strings.NewReader(`{"url":"https://example.com/p/1","source_name":"digikala"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/products/"+productID+"/sources", strings.NewReader(`{"url":"https://www.digikala.com/product/dkp-123456/","source_name":"digikala"}`))
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -51,7 +51,7 @@ func TestHandlerUpdatesSourceActiveState(t *testing.T) {
 	database := newTestDB(t)
 	productID := createTestProduct(t, database)
 	store := NewSQLiteStore(database)
-	created, err := store.Create(httptest.NewRequest(http.MethodPost, "/", nil).Context(), productID, CreateInput{URL: "https://example.com/p/1"})
+	created, err := store.Create(httptest.NewRequest(http.MethodPost, "/", nil).Context(), productID, CreateInput{URL: "https://www.digikala.com/product/dkp-123456/"})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}

@@ -44,7 +44,7 @@ func NormalizeCreate(input CreateInput) (CreateInput, error) {
 		return CreateInput{}, err
 	}
 
-	sourceName, err := normalizeSourceName(input.SourceName)
+	sourceName, err := normalizeSourceName(input.SourceName, normalizedURL)
 	if err != nil {
 		return CreateInput{}, err
 	}
@@ -62,11 +62,14 @@ func NormalizeUpdate(input UpdateInput) (UpdateInput, error) {
 		if err != nil {
 			return UpdateInput{}, err
 		}
+		if err := validateSupportedSourceURL("digikala", normalizedURL); err != nil {
+			return UpdateInput{}, err
+		}
 		input.URL = &normalizedURL
 	}
 
 	if input.SourceName != nil {
-		sourceName, err := normalizeSourceName(*input.SourceName)
+		sourceName, err := normalizeSupportedSourceName(*input.SourceName)
 		if err != nil {
 			return UpdateInput{}, err
 		}
@@ -109,11 +112,23 @@ func normalizeURL(value string) (string, error) {
 	return parsed.String(), nil
 }
 
-func normalizeSourceName(value string) (string, error) {
+func normalizeSourceName(value string, normalizedURL string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	if normalized == "" {
-		return "unknown", nil
+		normalized = sourceNameFromURL(normalizedURL)
 	}
+	sourceName, err := normalizeSupportedSourceName(normalized)
+	if err != nil {
+		return "", err
+	}
+	if err := validateSupportedSourceURL(sourceName, normalizedURL); err != nil {
+		return "", err
+	}
+	return sourceName, nil
+}
+
+func normalizeSupportedSourceName(value string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(value))
 	if len(normalized) > maxSourceNameLength {
 		return "", fieldError("source_name", "must be 80 characters or less")
 	}
@@ -123,7 +138,65 @@ func normalizeSourceName(value string) (string, error) {
 		}
 		return "", fieldError("source_name", "must contain only letters, numbers, hyphens, or underscores")
 	}
+	if normalized != "digikala" {
+		return "", fieldError("source_name", "must be one of the supported sources")
+	}
 	return normalized, nil
+}
+
+func sourceNameFromURL(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	switch strings.ToLower(parsed.Hostname()) {
+	case "digikala.com", "www.digikala.com":
+		return "digikala"
+	default:
+		return ""
+	}
+}
+
+func validateSupportedSourceURL(sourceName string, rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fieldError("url", "must be a valid absolute URL")
+	}
+
+	switch sourceName {
+	case "digikala":
+		host := strings.ToLower(parsed.Hostname())
+		if host != "digikala.com" && host != "www.digikala.com" {
+			return fieldError("url", "must be a Digikala product URL")
+		}
+		if !hasDigikalaProductID(parsed.Path) {
+			return fieldError("url", "must include a Digikala dkp product id")
+		}
+		return nil
+	default:
+		return fieldError("source_name", "must be one of the supported sources")
+	}
+}
+
+func hasDigikalaProductID(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for _, part := range parts {
+		lower := strings.ToLower(part)
+		if !strings.HasPrefix(lower, "dkp-") {
+			continue
+		}
+		id := strings.TrimPrefix(lower, "dkp-")
+		if id == "" {
+			return false
+		}
+		for _, r := range id {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func fieldError(field, message string) error {
