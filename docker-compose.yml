@@ -22,6 +22,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     command: ["/usr/local/bin/gheymatchi-migrate"]
+    user: "${DOCKER_UID:-10001}:${DOCKER_GID:-10001}"
     environment:
       APP_ENV: local
       DB_PATH: /data/gheymatchi.db
@@ -47,6 +48,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    user: "${DOCKER_UID:-10001}:${DOCKER_GID:-10001}"
     environment:
       APP_ENV: local
       HTTP_ADDR: :8080
@@ -117,6 +119,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     command: ["/usr/local/bin/gheymatchi-worker"]
+    user: "${DOCKER_UID:-10001}:${DOCKER_GID:-10001}"
     environment:
       APP_ENV: local
       DB_PATH: /data/gheymatchi.db
@@ -169,6 +172,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     command: ["/usr/local/bin/gheymatchi-seed"]
+    user: "${DOCKER_UID:-10001}:${DOCKER_GID:-10001}"
     environment:
       APP_ENV: local
       DB_PATH: /data/gheymatchi.db

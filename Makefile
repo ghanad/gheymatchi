@@ -1,5 +1,7 @@
 ROOT_DIR := $(CURDIR)
 GO_ENV := GOCACHE=$(ROOT_DIR)/.cache/go-build
+DOCKER_UID := $(shell id -u)
+DOCKER_GID := $(shell id -g)
 
 .PHONY: api worker migrate seed test frontend-install frontend docker-migrate docker-seed docker-up docker-postgres-up docker-down
 
@@ -25,13 +27,13 @@ frontend-install:
 	cd frontend && npm install
 
 docker-migrate:
-	docker compose run --rm migrate
+	DOCKER_UID=$(DOCKER_UID) DOCKER_GID=$(DOCKER_GID) docker compose run --rm migrate
 
 docker-seed: docker-migrate
-	docker compose run --rm seed
+	DOCKER_UID=$(DOCKER_UID) DOCKER_GID=$(DOCKER_GID) docker compose run --rm seed
 
 docker-up:
-	docker compose up --build
+	DOCKER_UID=$(DOCKER_UID) DOCKER_GID=$(DOCKER_GID) docker compose up --build
 
 docker-postgres-up:
 	docker compose --profile postgres up --build postgres migrate-postgres api-postgres frontend-postgres worker-postgres
