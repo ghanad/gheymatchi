@@ -68,6 +68,21 @@ ORDER BY created_at DESC, id DESC`)
 	return scanNotifications(rows)
 }
 
+func (s *SQLiteStore) ListForUser(ctx context.Context, userID string) ([]Notification, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT notifications.id, notifications.alert_id, notifications.channel, notifications.recipient, notifications.status, notifications.attempt_count, notifications.last_error, notifications.sent_at, notifications.created_at
+FROM notifications
+JOIN alerts ON alerts.id = notifications.alert_id
+WHERE alerts.user_id = ?
+ORDER BY notifications.created_at DESC, notifications.id DESC`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list notifications: %w", err)
+	}
+	defer rows.Close()
+
+	return scanNotifications(rows)
+}
+
 func (s *SQLiteStore) ListPending(ctx context.Context, limit int) ([]Notification, error) {
 	if limit <= 0 {
 		limit = 50

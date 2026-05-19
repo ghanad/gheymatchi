@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gheymatchi/backend/internal/alert"
+	"gheymatchi/backend/internal/auth"
 	"gheymatchi/backend/internal/config"
 	"gheymatchi/backend/internal/db"
 	"gheymatchi/backend/internal/marketrate"
@@ -51,6 +52,14 @@ func main() {
 	priceStore := price.NewSQLiteStore(database)
 	rateStore := marketrate.NewSQLiteStore(database)
 	alertStore := alert.NewSQLiteStore(database)
+	authStore := auth.NewSQLiteStore(database)
+
+	demoUser, err := ensureDemoUser(ctx, authStore)
+	if err != nil {
+		logger.Error("seed user", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	ctx = auth.ContextWithUserID(ctx, demoUser.ID)
 
 	demoProduct, createdProduct, err := ensureDemoProduct(ctx, productStore)
 	if err != nil {
@@ -93,6 +102,22 @@ func main() {
 	)
 }
 
+func ensureDemoUser(ctx context.Context, store auth.Store) (auth.User, error) {
+	session, err := store.Login(ctx, auth.LoginInput{Email: "demo@gheymatchi.local", Password: "password123"})
+	if err == nil {
+		return session.User, nil
+	}
+	if err != auth.ErrInvalidCredentials {
+		return auth.User{}, err
+	}
+
+	created, err := store.Register(ctx, auth.RegisterInput{Email: "demo@gheymatchi.local", Password: "password123"})
+	if err != nil {
+		return auth.User{}, err
+	}
+	return created.User, nil
+}
+
 func ensureDemoProduct(ctx context.Context, store product.Store) (product.Product, bool, error) {
 	products, err := store.List(ctx)
 	if err != nil {
@@ -104,7 +129,11 @@ func ensureDemoProduct(ctx context.Context, store product.Store) (product.Produc
 		}
 	}
 
-	created, err := store.Create(ctx, product.CreateInput{
+	userID, err := auth.RequireUserID(ctx)
+	if err != nil {
+		return product.Product{}, false, err
+	}
+	created, err := store.Create(ctx, userID, product.CreateInput{
 		Name:        demoProductName,
 		Description: "Local seed product for testing price history, market rates, alerts, and notifications.",
 	})

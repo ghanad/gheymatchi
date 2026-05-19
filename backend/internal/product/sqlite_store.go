@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"gheymatchi/backend/internal/auth"
 )
 
 type SQLiteStore struct {
@@ -17,7 +19,7 @@ func NewSQLiteStore(db *sql.DB) *SQLiteStore {
 	return &SQLiteStore{db: db}
 }
 
-func (s *SQLiteStore) Create(ctx context.Context, input CreateInput) (Product, error) {
+func (s *SQLiteStore) Create(ctx context.Context, userID string, input CreateInput) (Product, error) {
 	normalized, err := NormalizeCreate(input)
 	if err != nil {
 		return Product{}, err
@@ -26,6 +28,7 @@ func (s *SQLiteStore) Create(ctx context.Context, input CreateInput) (Product, e
 	now := time.Now().UTC()
 	product := Product{
 		ID:          newID(),
+		UserID:      &userID,
 		Name:        normalized.Name,
 		Description: normalized.Description,
 		CreatedAt:   now,
@@ -34,8 +37,9 @@ func (s *SQLiteStore) Create(ctx context.Context, input CreateInput) (Product, e
 
 	_, err = s.db.ExecContext(
 		ctx,
-		`INSERT INTO products (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+		`INSERT INTO products (id, user_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
 		product.ID,
+		userID,
 		product.Name,
 		nullString(product.Description),
 		formatTime(product.CreatedAt),
@@ -49,10 +53,15 @@ func (s *SQLiteStore) Create(ctx context.Context, input CreateInput) (Product, e
 }
 
 func (s *SQLiteStore) List(ctx context.Context) ([]Product, error) {
+	userID, err := auth.RequireUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.db.QueryContext(ctx, `
 SELECT id, user_id, name, description, created_at, updated_at
 FROM products
-ORDER BY created_at DESC, id DESC`)
+WHERE user_id = ?
+ORDER BY created_at DESC, id DESC`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list products: %w", err)
 	}
@@ -74,10 +83,14 @@ ORDER BY created_at DESC, id DESC`)
 }
 
 func (s *SQLiteStore) Get(ctx context.Context, id string) (Product, error) {
+	userID, err := auth.RequireUserID(ctx)
+	if err != nil {
+		return Product{}, err
+	}
 	row := s.db.QueryRowContext(ctx, `
 SELECT id, user_id, name, description, created_at, updated_at
 FROM products
-WHERE id = ?`, id)
+WHERE id = ? AND user_id = ?`, id, userID)
 
 	product, err := scanProduct(row)
 	if err != nil {
@@ -105,13 +118,18 @@ func (s *SQLiteStore) Update(ctx context.Context, id string, input UpdateInput) 
 	}
 	existing.UpdatedAt = time.Now().UTC()
 
+	userID, err := auth.RequireUserID(ctx)
+	if err != nil {
+		return Product{}, err
+	}
 	result, err := s.db.ExecContext(
 		ctx,
-		`UPDATE products SET name = ?, description = ?, updated_at = ? WHERE id = ?`,
+		`UPDATE products SET name = ?, description = ?, updated_at = ? WHERE id = ? AND user_id = ?`,
 		existing.Name,
 		nullString(existing.Description),
 		formatTime(existing.UpdatedAt),
 		id,
+		userID,
 	)
 	if err != nil {
 		return Product{}, fmt.Errorf("update product: %w", err)
@@ -128,7 +146,11 @@ func (s *SQLiteStore) Update(ctx context.Context, id string, input UpdateInput) 
 }
 
 func (s *SQLiteStore) Delete(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM products WHERE id = ?`, id)
+	userID, err := auth.RequireUserID(ctx)
+	if err != nil {
+		return err
+	}
+	result, err := s.db.ExecContext(ctx, `DELETE FROM products WHERE id = ? AND user_id = ?`, id, userID)
 	if err != nil {
 		return fmt.Errorf("delete product: %w", err)
 	}

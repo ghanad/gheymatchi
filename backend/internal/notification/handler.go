@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+
+	"gheymatchi/backend/internal/auth"
 )
 
 type Handler struct {
-	store Store
+	store UserStore
 }
 
-func NewHandler(store Store) *Handler {
+func NewHandler(store UserStore) *Handler {
 	return &Handler{store: store}
 }
 
@@ -19,7 +21,12 @@ func (h *Handler) Register(mux *http.ServeMux) {
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
-	notifications, err := h.store.List(r.Context())
+	userID, err := auth.RequireUserID(r.Context())
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "authentication required")
+		return
+	}
+	notifications, err := h.store.ListForUser(r.Context(), userID)
 	if err != nil {
 		slog.Default().Error("notification request failed", slog.String("error", err.Error()))
 		writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")

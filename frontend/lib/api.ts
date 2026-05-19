@@ -2,6 +2,16 @@ export type ApiStatus = {
   status: string;
 };
 
+export type User = {
+  id: string;
+  email?: string;
+};
+
+export type AuthSession = {
+  user: User;
+  token: string;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -83,6 +93,81 @@ export function apiBaseURL() {
   return process.env.BACKEND_API_BASE_URL || defaultBaseURL;
 }
 
+const authTokenKey = "gheymatchi_auth_token";
+
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.localStorage.getItem(authTokenKey);
+}
+
+export function setAuthToken(token: string) {
+  window.localStorage.setItem(authTokenKey, token);
+}
+
+export function clearAuthToken() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(authTokenKey);
+  }
+}
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const headers = new Headers(extra);
+  const token = getAuthToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  return headers;
+}
+
+async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  return fetch(`${apiBaseURL()}${path}`, {
+    ...init,
+    headers: authHeaders(init?.headers)
+  });
+}
+
+export async function registerUser(email: string, password: string): Promise<AuthSession> {
+  const response = await apiFetch("/api/auth/register", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Registration failed"));
+  }
+  return response.json() as Promise<AuthSession>;
+}
+
+export async function loginUser(email: string, password: string): Promise<AuthSession> {
+  const response = await apiFetch("/api/auth/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Login failed"));
+  }
+  return response.json() as Promise<AuthSession>;
+}
+
+export async function logoutUser(): Promise<void> {
+  const response = await apiFetch("/api/auth/logout", {
+    method: "POST"
+  });
+  clearAuthToken();
+  if (!response.ok && response.status !== 401) {
+    throw new Error(await errorMessage(response, "Logout failed"));
+  }
+}
+
 export async function fetchReadiness(): Promise<ApiStatus> {
   const response = await fetch(`${apiBaseURL()}/readyz`, {
     cache: "no-store"
@@ -96,7 +181,7 @@ export async function fetchReadiness(): Promise<ApiStatus> {
 }
 
 export async function fetchProducts(): Promise<Product[]> {
-  const response = await fetch(`${apiBaseURL()}/api/products`, {
+  const response = await apiFetch("/api/products", {
     cache: "no-store"
   });
 
@@ -109,7 +194,7 @@ export async function fetchProducts(): Promise<Product[]> {
 }
 
 export async function fetchProduct(productID: string): Promise<Product> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}`, {
+  const response = await apiFetch(`/api/products/${productID}`, {
     cache: "no-store"
   });
 
@@ -121,7 +206,7 @@ export async function fetchProduct(productID: string): Promise<Product> {
 }
 
 export async function createProduct(input: ProductInput): Promise<Product> {
-  const response = await fetch(`${apiBaseURL()}/api/products`, {
+  const response = await apiFetch("/api/products", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -137,7 +222,7 @@ export async function createProduct(input: ProductInput): Promise<Product> {
 }
 
 export async function updateProduct(productID: string, input: Partial<ProductInput>): Promise<Product> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}`, {
+  const response = await apiFetch(`/api/products/${productID}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json"
@@ -153,7 +238,7 @@ export async function updateProduct(productID: string, input: Partial<ProductInp
 }
 
 export async function deleteProduct(productID: string): Promise<void> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}`, {
+  const response = await apiFetch(`/api/products/${productID}`, {
     method: "DELETE"
   });
 
@@ -163,7 +248,7 @@ export async function deleteProduct(productID: string): Promise<void> {
 }
 
 export async function fetchProductSources(productID: string): Promise<ProductSource[]> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/sources`, {
+  const response = await apiFetch(`/api/products/${productID}/sources`, {
     cache: "no-store"
   });
 
@@ -176,7 +261,7 @@ export async function fetchProductSources(productID: string): Promise<ProductSou
 }
 
 export async function createProductSource(productID: string, input: ProductSourceInput): Promise<ProductSource> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/sources`, {
+  const response = await apiFetch(`/api/products/${productID}/sources`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -196,7 +281,7 @@ export async function updateProductSource(
   sourceID: string,
   input: Partial<ProductSourceInput>
 ): Promise<ProductSource> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/sources/${sourceID}`, {
+  const response = await apiFetch(`/api/products/${productID}/sources/${sourceID}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json"
@@ -212,7 +297,7 @@ export async function updateProductSource(
 }
 
 export async function deleteProductSource(productID: string, sourceID: string): Promise<void> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/sources/${sourceID}`, {
+  const response = await apiFetch(`/api/products/${productID}/sources/${sourceID}`, {
     method: "DELETE"
   });
 
@@ -222,7 +307,7 @@ export async function deleteProductSource(productID: string, sourceID: string): 
 }
 
 export async function fetchProductPricePoints(productID: string): Promise<PricePoint[]> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/price-points`, {
+  const response = await apiFetch(`/api/products/${productID}/price-points`, {
     cache: "no-store"
   });
 
@@ -235,7 +320,7 @@ export async function fetchProductPricePoints(productID: string): Promise<PriceP
 }
 
 export async function fetchProductAlerts(productID: string): Promise<Alert[]> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/alerts`, {
+  const response = await apiFetch(`/api/products/${productID}/alerts`, {
     cache: "no-store"
   });
 
@@ -248,7 +333,7 @@ export async function fetchProductAlerts(productID: string): Promise<Alert[]> {
 }
 
 export async function createProductAlert(productID: string, input: AlertInput): Promise<Alert> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/alerts`, {
+  const response = await apiFetch(`/api/products/${productID}/alerts`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -264,7 +349,7 @@ export async function createProductAlert(productID: string, input: AlertInput): 
 }
 
 export async function updateProductAlert(productID: string, alertID: string, input: Partial<AlertInput>): Promise<Alert> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/alerts/${alertID}`, {
+  const response = await apiFetch(`/api/products/${productID}/alerts/${alertID}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json"
@@ -280,7 +365,7 @@ export async function updateProductAlert(productID: string, alertID: string, inp
 }
 
 export async function deleteProductAlert(productID: string, alertID: string): Promise<void> {
-  const response = await fetch(`${apiBaseURL()}/api/products/${productID}/alerts/${alertID}`, {
+  const response = await apiFetch(`/api/products/${productID}/alerts/${alertID}`, {
     method: "DELETE"
   });
 
@@ -290,7 +375,7 @@ export async function deleteProductAlert(productID: string, alertID: string): Pr
 }
 
 export async function fetchNotifications(): Promise<Notification[]> {
-  const response = await fetch(`${apiBaseURL()}/api/notifications`, {
+  const response = await apiFetch("/api/notifications", {
     cache: "no-store"
   });
 

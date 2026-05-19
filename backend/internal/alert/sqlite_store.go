@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"gheymatchi/backend/internal/auth"
 )
 
 type SQLiteStore struct {
@@ -44,11 +46,15 @@ func (s *SQLiteStore) Create(ctx context.Context, productID string, input Create
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
+	if userID, ok := auth.UserIDFromContext(ctx); ok {
+		alert.UserID = &userID
+	}
 
 	_, err = s.db.ExecContext(ctx, `INSERT INTO alerts
-(id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+(id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		alert.ID,
+		nullStringPtr(alert.UserID),
 		alert.ProductID,
 		alert.Name,
 		alert.ConditionType,
@@ -155,6 +161,9 @@ WHERE product_id = ? AND id = ?`,
 }
 
 func (s *SQLiteStore) Delete(ctx context.Context, productID string, alertID string) error {
+	if err := s.ensureProductExists(ctx, productID); err != nil {
+		return err
+	}
 	result, err := s.db.ExecContext(ctx, `DELETE FROM alerts WHERE product_id = ? AND id = ?`, productID, alertID)
 	if err != nil {
 		return fmt.Errorf("delete alert: %w", err)
@@ -220,6 +229,10 @@ WHERE id = ?`,
 }
 
 func (s *SQLiteStore) get(ctx context.Context, productID string, alertID string) (Alert, error) {
+	if err := s.ensureProductExists(ctx, productID); err != nil {
+		return Alert{}, err
+	}
+
 	row := s.db.QueryRowContext(ctx, `
 SELECT id, user_id, product_id, name, condition_type, target_unit, threshold_value_text, is_active, last_triggered_at, created_at, updated_at
 FROM alerts
@@ -234,6 +247,18 @@ WHERE product_id = ? AND id = ?`, productID, alertID)
 
 func (s *SQLiteStore) ensureProductExists(ctx context.Context, productID string) error {
 	var id string
+	userID, ok := auth.UserIDFromContext(ctx)
+	if ok {
+		err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ? AND user_id = ?`, productID, userID).Scan(&id)
+		if err == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("check product exists: %w", err)
+		}
+		return nil
+	}
+
 	err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ?`, productID).Scan(&id)
 	if err == sql.ErrNoRows {
 		return ErrNotFound
@@ -312,6 +337,13 @@ func nullTimePtr(value *time.Time) sql.NullString {
 		return sql.NullString{}
 	}
 	return sql.NullString{String: formatTime(*value), Valid: true}
+}
+
+func nullStringPtr(value *string) sql.NullString {
+	if value == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: *value, Valid: true}
 }
 
 func formatTime(value time.Time) string {

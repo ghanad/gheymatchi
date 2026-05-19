@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { getAuthToken, logoutUser } from "../lib/api";
 
 const links = [
   { href: "/", label: "Dashboard" },
@@ -9,6 +13,18 @@ const links = [
 ];
 
 export function Navigation() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    setIsAuthenticated(Boolean(getAuthToken()));
+  }, []);
+
+  async function handleLogout() {
+    await logoutUser();
+    setIsAuthenticated(false);
+    window.location.href = "/login";
+  }
+
   return (
     <nav className="nav" aria-label="Primary navigation">
       {links.map((link) => (
@@ -16,6 +32,20 @@ export function Navigation() {
           {link.label}
         </Link>
       ))}
+      {isAuthenticated ? (
+        <button className="nav-button" type="button" onClick={handleLogout}>
+          Logout
+        </button>
+      ) : (
+        <>
+          <Link className="nav-link" href="/login">
+            Login
+          </Link>
+          <Link className="nav-link" href="/register">
+            Register
+          </Link>
+        </>
+      )}
     </nav>
   );
 }

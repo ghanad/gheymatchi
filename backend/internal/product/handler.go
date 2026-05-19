@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+
+	"gheymatchi/backend/internal/auth"
 )
 
 type Handler struct {
@@ -30,7 +32,13 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	product, err := h.store.Create(r.Context(), CreateInput{
+	userID, err := auth.RequireUserID(r.Context())
+	if err != nil {
+		handleProductError(w, err)
+		return
+	}
+
+	product, err := h.store.Create(r.Context(), userID, CreateInput{
 		Name:        body.NameString(),
 		Description: body.DescriptionValue(),
 	})
@@ -136,6 +144,8 @@ func handleProductError(w http.ResponseWriter, err error) {
 		writeValidationError(w, validationErr)
 	case errors.Is(err, ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "product not found")
+	case errors.Is(err, auth.ErrUnauthenticated):
+		writeError(w, http.StatusUnauthorized, "unauthenticated", "authentication required")
 	default:
 		slog.Default().Error("product request failed", slog.String("error", err.Error()))
 		writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")

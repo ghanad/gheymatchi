@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"gheymatchi/backend/internal/auth"
 	"gheymatchi/backend/internal/db"
 )
 
@@ -91,6 +92,36 @@ func TestSQLiteStoreCreateRequiresProduct(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreScopesAlertsByAuthenticatedProductOwner(t *testing.T) {
+	database := newTestDB(t)
+	insertTestUser(t, database, "user-a")
+	insertTestUser(t, database, "user-b")
+	productID := createTestProductForUser(t, database, "private-product", "user-a")
+	store := NewSQLiteStore(database)
+	ctxA := auth.ContextWithUserID(context.Background(), "user-a")
+	ctxB := auth.ContextWithUserID(context.Background(), "user-b")
+
+	created, err := store.Create(ctxA, productID, CreateInput{
+		Name:               "Target price",
+		ConditionType:      ConditionBelow,
+		TargetUnit:         UnitIRR,
+		ThresholdValueText: "85000000",
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if created.UserID == nil || *created.UserID != "user-a" {
+		t.Fatalf("created user ID = %v, want user-a", created.UserID)
+	}
+
+	if _, err := store.List(ctxB, productID); err != ErrNotFound {
+		t.Fatalf("List(other user) error = %v, want ErrNotFound", err)
+	}
+	if err := store.Delete(ctxB, productID, created.ID); err != ErrNotFound {
+		t.Fatalf("Delete(other user) error = %v, want ErrNotFound", err)
+	}
+}
+
 func newTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
@@ -121,6 +152,39 @@ func createTestProduct(t *testing.T, database *sql.DB) string {
 	_, err := database.Exec(
 		`INSERT INTO products (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)`,
 		productID,
+		"Phone",
+		"2026-01-01T00:00:00Z",
+		"2026-01-01T00:00:00Z",
+	)
+	if err != nil {
+		t.Fatalf("insert product: %v", err)
+	}
+	return productID
+}
+
+func insertTestUser(t *testing.T, database *sql.DB, userID string) {
+	t.Helper()
+
+	_, err := database.Exec(
+		`INSERT INTO users (id, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+		userID,
+		userID+"@example.com",
+		"test-hash",
+		"2026-01-01T00:00:00Z",
+		"2026-01-01T00:00:00Z",
+	)
+	if err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+}
+
+func createTestProductForUser(t *testing.T, database *sql.DB, productID string, userID string) string {
+	t.Helper()
+
+	_, err := database.Exec(
+		`INSERT INTO products (id, user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+		productID,
+		userID,
 		"Phone",
 		"2026-01-01T00:00:00Z",
 		"2026-01-01T00:00:00Z",

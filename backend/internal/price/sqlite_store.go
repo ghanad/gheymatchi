@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"gheymatchi/backend/internal/auth"
 	"gheymatchi/backend/internal/marketrate"
 )
 
@@ -169,6 +170,18 @@ WHERE rate_type = ?`, rateType)
 
 func (s *SQLiteStore) ensureProduct(ctx context.Context, productID string) error {
 	var id string
+	userID, ok := auth.UserIDFromContext(ctx)
+	if ok {
+		err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ? AND user_id = ?`, productID, userID).Scan(&id)
+		if err == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("check product exists: %w", err)
+		}
+		return nil
+	}
+
 	err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ?`, productID).Scan(&id)
 	if err == sql.ErrNoRows {
 		return ErrNotFound
@@ -181,6 +194,22 @@ func (s *SQLiteStore) ensureProduct(ctx context.Context, productID string) error
 
 func (s *SQLiteStore) ensureProductSource(ctx context.Context, productID string, productSourceID string) error {
 	var id string
+	userID, ok := auth.UserIDFromContext(ctx)
+	if ok {
+		err := s.db.QueryRowContext(ctx, `
+SELECT product_sources.id
+FROM product_sources
+JOIN products ON products.id = product_sources.product_id
+WHERE product_sources.product_id = ? AND product_sources.id = ? AND products.user_id = ?`, productID, productSourceID, userID).Scan(&id)
+		if err == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("check product source exists: %w", err)
+		}
+		return nil
+	}
+
 	err := s.db.QueryRowContext(ctx, `SELECT id FROM product_sources WHERE product_id = ? AND id = ?`, productID, productSourceID).Scan(&id)
 	if err == sql.ErrNoRows {
 		return ErrNotFound

@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { fetchNotifications } from "../../lib/api";
 import type { Notification } from "../../lib/api";
 import { formatDateTime } from "../../lib/format";
@@ -12,15 +15,38 @@ function statusClass(status: string) {
   return "status-badge status-warning";
 }
 
-export default async function NotificationsPage() {
-  let notifications: Notification[] = [];
-  let error: string | null = null;
+export default function NotificationsPage() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  try {
-    notifications = await fetchNotifications();
-  } catch (err) {
-    error = err instanceof Error ? err.message : "Could not load notifications";
-  }
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadNotifications() {
+      try {
+        setIsLoading(true);
+        const loaded = await fetchNotifications();
+        if (isMounted) {
+          setNotifications(loaded);
+          setError(null);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "Could not load notifications");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadNotifications();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <>
@@ -31,7 +57,8 @@ export default async function NotificationsPage() {
 
       <section className="panel notification-list">
         {error ? <div className="form-error">{error}</div> : null}
-        {!error && notifications.length === 0 ? <p>No notifications have been created yet.</p> : null}
+        {isLoading ? <p>Loading notifications...</p> : null}
+        {!isLoading && !error && notifications.length === 0 ? <p>No notifications have been created yet.</p> : null}
         {notifications.map((notification) => (
           <article className="notification-row" key={notification.id}>
             <div>

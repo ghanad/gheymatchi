@@ -1,6 +1,7 @@
 package product
 
 import (
+	"gheymatchi/backend/internal/auth"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +14,7 @@ func TestHandlerCreateProduct(t *testing.T) {
 	NewHandler(store).Register(mux)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/products", strings.NewReader(`{"name":"Phone"}`))
+	req = req.WithContext(auth.ContextWithUserID(req.Context(), "user-1"))
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -34,6 +36,7 @@ func TestHandlerRejectsInvalidProduct(t *testing.T) {
 	NewHandler(store).Register(mux)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/products", strings.NewReader(`{"name":" "}`))
+	req = req.WithContext(auth.ContextWithUserID(req.Context(), "user-1"))
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -48,7 +51,8 @@ func TestHandlerRejectsInvalidProduct(t *testing.T) {
 
 func TestHandlerDeletesProduct(t *testing.T) {
 	store := newTestStore(t)
-	product, err := store.Create(httptest.NewRequest(http.MethodPost, "/", nil).Context(), CreateInput{Name: "Phone"})
+	ctx := auth.ContextWithUserID(httptest.NewRequest(http.MethodPost, "/", nil).Context(), "user-1")
+	product, err := store.Create(ctx, "user-1", CreateInput{Name: "Phone"})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
@@ -57,6 +61,7 @@ func TestHandlerDeletesProduct(t *testing.T) {
 	NewHandler(store).Register(mux)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/products/"+product.ID, nil)
+	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)

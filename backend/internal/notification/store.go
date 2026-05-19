@@ -11,3 +11,8 @@ type Store interface {
 	MarkSent(ctx context.Context, id string, sentAt time.Time) error
 	RecordFailedAttempt(ctx context.Context, id string, message string, maxAttempts int) error
 }
+
+type UserStore interface {
+	Store
+	ListForUser(ctx context.Context, userID string) ([]Notification, error)
+}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"gheymatchi/backend/internal/alert"
+	"gheymatchi/backend/internal/auth"
 	"gheymatchi/backend/internal/config"
 	"gheymatchi/backend/internal/db"
 	"gheymatchi/backend/internal/marketrate"
@@ -49,8 +50,10 @@ func main() {
 
 func run(cfg config.Config, logger *slog.Logger, database *sql.DB) error {
 	mux := http.NewServeMux()
+	authStore := auth.NewSQLiteStore(database)
 	mux.HandleFunc("/healthz", statusHandler("ok"))
 	mux.HandleFunc("/readyz", readinessHandler(database))
+	auth.NewHandler(authStore).Register(mux)
 	product.NewHandler(product.NewSQLiteStore(database)).Register(mux)
 	source.NewHandler(source.NewSQLiteStore(database)).Register(mux)
 	price.NewHandler(price.NewSQLiteStore(database)).Register(mux)
@@ -60,7 +63,7 @@ func run(cfg config.Config, logger *slog.Logger, database *sql.DB) error {
 
 	server := &http.Server{
 		Addr:         cfg.HTTPAddr,
-		Handler:      requestLogger(logger, corsMiddleware(mux)),
+		Handler:      requestLogger(logger, corsMiddleware(auth.Middleware(authStore, mux))),
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
 		IdleTimeout:  cfg.IdleTimeout,
@@ -172,7 +175,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		if allowedOrigins[r.Header.Get("Origin")] {
 			w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 		}
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

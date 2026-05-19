@@ -6,14 +6,15 @@ import (
 	"path/filepath"
 	"testing"
 
+	"gheymatchi/backend/internal/auth"
 	"gheymatchi/backend/internal/db"
 )
 
 func TestSQLiteStoreCRUD(t *testing.T) {
 	store := newTestStore(t)
-	ctx := context.Background()
+	ctx := auth.ContextWithUserID(context.Background(), "user-1")
 
-	created, err := store.Create(ctx, CreateInput{Name: "Phone", Description: "Digikala candidate"})
+	created, err := store.Create(ctx, "user-1", CreateInput{Name: "Phone", Description: "Digikala candidate"})
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
@@ -22,6 +23,9 @@ func TestSQLiteStoreCRUD(t *testing.T) {
 	}
 	if created.Name != "Phone" {
 		t.Fatalf("created name = %q, want Phone", created.Name)
+	}
+	if created.UserID == nil || *created.UserID != "user-1" {
+		t.Fatalf("created user ID = %v, want user-1", created.UserID)
 	}
 
 	products, err := store.List(ctx)
@@ -61,6 +65,29 @@ func TestSQLiteStoreCRUD(t *testing.T) {
 	}
 }
 
+func TestSQLiteStoreScopesProductsByUser(t *testing.T) {
+	store := newTestStore(t)
+	ctxA := auth.ContextWithUserID(context.Background(), "user-a")
+	ctxB := auth.ContextWithUserID(context.Background(), "user-b")
+
+	created, err := store.Create(ctxA, "user-a", CreateInput{Name: "Private phone"})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	products, err := store.List(ctxB)
+	if err != nil {
+		t.Fatalf("List(other user) error = %v", err)
+	}
+	if len(products) != 0 {
+		t.Fatalf("other user products = %d, want 0", len(products))
+	}
+
+	if _, err := store.Get(ctxB, created.ID); err != ErrNotFound {
+		t.Fatalf("Get(other user) error = %v, want ErrNotFound", err)
+	}
+}
+
 func newTestStore(t *testing.T) *SQLiteStore {
 	t.Helper()
 
@@ -79,6 +106,19 @@ func newTestStore(t *testing.T) *SQLiteStore {
 	}
 	if err := db.ApplyMigrations(ctx, database, migrations); err != nil {
 		t.Fatalf("ApplyMigrations() error = %v", err)
+	}
+	for _, userID := range []string{"user-1", "user-a", "user-b"} {
+		if _, err := database.ExecContext(ctx, `
+INSERT INTO users (id, email, password_hash, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?)`,
+			userID,
+			userID+"@example.com",
+			"test-hash",
+			"2026-01-01T00:00:00Z",
+			"2026-01-01T00:00:00Z",
+		); err != nil {
+			t.Fatalf("insert user %s: %v", userID, err)
+		}
 	}
 
 	return NewSQLiteStore(database)

@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
+
+	"gheymatchi/backend/internal/auth"
 )
 
 type SQLiteStore struct {
@@ -167,6 +169,9 @@ WHERE product_id = ? AND id = ?`,
 }
 
 func (s *SQLiteStore) Delete(ctx context.Context, productID string, sourceID string) error {
+	if err := s.ensureProductExists(ctx, productID); err != nil {
+		return err
+	}
 	result, err := s.db.ExecContext(ctx, `DELETE FROM product_sources WHERE product_id = ? AND id = ?`, productID, sourceID)
 	if err != nil {
 		return fmt.Errorf("delete product source: %w", err)
@@ -183,6 +188,10 @@ func (s *SQLiteStore) Delete(ctx context.Context, productID string, sourceID str
 }
 
 func (s *SQLiteStore) get(ctx context.Context, productID string, sourceID string) (ProductSource, error) {
+	if err := s.ensureProductExists(ctx, productID); err != nil {
+		return ProductSource{}, err
+	}
+
 	row := s.db.QueryRowContext(ctx, `
 SELECT id, product_id, url, source_name, is_active, created_at, updated_at
 FROM product_sources
@@ -197,6 +206,18 @@ WHERE product_id = ? AND id = ?`, productID, sourceID)
 
 func (s *SQLiteStore) ensureProductExists(ctx context.Context, productID string) error {
 	var id string
+	userID, ok := auth.UserIDFromContext(ctx)
+	if ok {
+		err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ? AND user_id = ?`, productID, userID).Scan(&id)
+		if err == sql.ErrNoRows {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("check product exists: %w", err)
+		}
+		return nil
+	}
+
 	err := s.db.QueryRowContext(ctx, `SELECT id FROM products WHERE id = ?`, productID).Scan(&id)
 	if err == sql.ErrNoRows {
 		return ErrNotFound

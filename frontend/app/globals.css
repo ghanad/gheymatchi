@@ -80,6 +80,20 @@ a {
   color: var(--text);
 }
 
+.nav-button {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--muted);
+  min-height: auto;
+  padding: 8px 10px;
+}
+
+.nav-button:hover,
+.nav-button:focus {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
 .main {
   margin: 0 auto;
   max-width: 1120px;
@@ -339,6 +353,15 @@ button:disabled {
   font-size: 14px;
   font-weight: 700;
   padding: 10px 12px;
+}
+
+.auth-panel {
+  max-width: 440px;
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
 }
 
 .alert-row {
