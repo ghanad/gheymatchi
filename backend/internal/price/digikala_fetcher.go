@@ -127,6 +127,9 @@ func (f *DigikalaFetcher) fetchJSON(ctx context.Context, apiURL string) ([]byte,
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 		return nil, ErrProductUnavailable
 	}
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("%w: digikala returned status %d", ErrSourceAccessDenied, resp.StatusCode)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("fetch digikala product: unexpected status %d", resp.StatusCode)
 	}

@@ -1,7 +1,10 @@
 package price
 
 import (
+	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 )
@@ -170,6 +173,19 @@ func TestParseDigikalaMissingPriceResponse(t *testing.T) {
 	_, err := parseDigikalaPriceResponse(body)
 	if !errors.Is(err, ErrPriceNotFound) {
 		t.Fatalf("parseDigikalaPriceResponse() error = %v, want ErrPriceNotFound", err)
+	}
+}
+
+func TestDigikalaFetcherFetchJSONAccessDenied(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	fetcher := NewDigikalaFetcher(server.Client(), 0, 0)
+	_, err := fetcher.fetchJSON(context.Background(), server.URL)
+	if !errors.Is(err, ErrSourceAccessDenied) {
+		t.Fatalf("fetchJSON() error = %v, want ErrSourceAccessDenied", err)
 	}
 }
 

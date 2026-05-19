@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -68,12 +69,7 @@ func (r Runner) RunOnce(ctx context.Context) error {
 	r.logger.Info("loaded active sources", slog.Int("count", len(sources)))
 	for _, productSource := range sources {
 		if err := r.checkSource(ctx, productSource); err != nil {
-			r.logger.Error(
-				"source check failed",
-				slog.String("source_id", productSource.ID),
-				slog.String("product_id", productSource.ProductID),
-				slog.String("error", err.Error()),
-			)
+			r.logSourceCheckFailure(ctx, productSource, err)
 		}
 	}
 
@@ -84,6 +80,21 @@ func (r Runner) RunOnce(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (r Runner) logSourceCheckFailure(ctx context.Context, productSource source.ProductSource, err error) {
+	attrs := []slog.Attr{
+		slog.String("source_id", productSource.ID),
+		slog.String("product_id", productSource.ProductID),
+		slog.String("error", err.Error()),
+	}
+
+	if errors.Is(err, price.ErrSourceAccessDenied) {
+		r.logger.LogAttrs(ctx, slog.LevelWarn, "source access denied", attrs...)
+		return
+	}
+
+	r.logger.LogAttrs(ctx, slog.LevelError, "source check failed", attrs...)
 }
 
 func (r Runner) Run(ctx context.Context, interval time.Duration) error {
