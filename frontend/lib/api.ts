@@ -90,6 +90,9 @@ export type Notification = {
 const defaultBaseURL = "http://localhost:8080";
 
 export function apiBaseURL() {
+  if (typeof window !== "undefined") {
+    return "";
+  }
   return process.env.BACKEND_API_BASE_URL || defaultBaseURL;
 }
 
