@@ -225,7 +225,7 @@ function isDigikalaProductURL(value: string) {
       (host === "digikala.com" || host === "www.digikala.com") &&
       url.pathname
         .split("/")
-        .some((part) => /^dkp-\d+$/i.test(part))
+        .some((part, index, parts) => /^dkp-\d+$/i.test(part) || (part === "product" && /^\d+$/.test(parts[index + 1] || "")))
     );
   } catch {
     return false;

@@ -180,23 +180,28 @@ func validateSupportedSourceURL(sourceName string, rawURL string) error {
 
 func hasDigikalaProductID(path string) bool {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	for _, part := range parts {
+	for index, part := range parts {
 		lower := strings.ToLower(part)
-		if !strings.HasPrefix(lower, "dkp-") {
-			continue
+		if strings.HasPrefix(lower, "dkp-") {
+			return isDigits(strings.TrimPrefix(lower, "dkp-"))
 		}
-		id := strings.TrimPrefix(lower, "dkp-")
-		if id == "" {
-			return false
+		if lower == "product" && index+1 < len(parts) && isDigits(parts[index+1]) {
+			return true
 		}
-		for _, r := range id {
-			if r < '0' || r > '9' {
-				return false
-			}
-		}
-		return true
 	}
 	return false
+}
+
+func isDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func fieldError(field, message string) error {

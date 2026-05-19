@@ -22,6 +22,16 @@ func TestDigikalaProductID(t *testing.T) {
 			url:  "https://digikala.com/product/dkp-42/",
 			want: "42",
 		},
+		{
+			name: "numeric product url",
+			url:  "https://www.digikala.com/product/20769143/",
+			want: "20769143",
+		},
+		{
+			name: "fresh product url",
+			url:  "https://www.digikala.com/fresh/product/dkp-856977/",
+			want: "856977",
+		},
 	}
 
 	for _, tt := range tests {
@@ -44,6 +54,22 @@ func TestDigikalaProductIDUnsupportedURL(t *testing.T) {
 	}
 }
 
+func TestParseDigikalaSourceURL(t *testing.T) {
+	info, err := parseDigikalaSourceURL("https://www.digikala.com/fresh/product/dkp-14590108/?variant_id=50179968")
+	if err != nil {
+		t.Fatalf("parseDigikalaSourceURL() error = %v", err)
+	}
+	if info.ProductID != "14590108" {
+		t.Fatalf("ProductID = %q, want 14590108", info.ProductID)
+	}
+	if info.VariantID != "50179968" {
+		t.Fatalf("VariantID = %q, want 50179968", info.VariantID)
+	}
+	if !info.IsFresh {
+		t.Fatal("IsFresh = false, want true")
+	}
+}
+
 func TestParseDigikalaPriceResponse(t *testing.T) {
 	body := readTestFixture(t, "digikala_marketable.json")
 
@@ -56,6 +82,76 @@ func TestParseDigikalaPriceResponse(t *testing.T) {
 	}
 	if parsed.Status != "marketable" {
 		t.Fatalf("Status = %q, want marketable", parsed.Status)
+	}
+}
+
+func TestParseDigikalaPriceResponseSelectsRequestedVariant(t *testing.T) {
+	body := []byte(`{
+		"data": {
+			"product": {
+				"title_fa": "Test product",
+				"status": "marketable",
+				"default_variant": {
+					"id": 1,
+					"status": "marketable",
+					"price": {"selling_price": 100},
+					"seller": {"title": "Default seller"}
+				},
+				"variants": [
+					{
+						"id": 2,
+						"status": "marketable",
+						"price": {"final_price": 200},
+						"seller": {"title_fa": "Requested seller"}
+					}
+				]
+			}
+		}
+	}`)
+
+	parsed, err := parseDigikalaPriceResponseForVariant(body, "2")
+	if err != nil {
+		t.Fatalf("parseDigikalaPriceResponseForVariant() error = %v", err)
+	}
+	if parsed.PriceIRR != 200 {
+		t.Fatalf("PriceIRR = %d, want 200", parsed.PriceIRR)
+	}
+	if parsed.VariantID != "2" {
+		t.Fatalf("VariantID = %q, want 2", parsed.VariantID)
+	}
+	if parsed.Seller != "Requested seller" {
+		t.Fatalf("Seller = %q, want Requested seller", parsed.Seller)
+	}
+	if parsed.Title != "Test product" {
+		t.Fatalf("Title = %q, want Test product", parsed.Title)
+	}
+}
+
+func TestParseDigikalaPriceResponseUsesFirstMarketableVariant(t *testing.T) {
+	body := []byte(`{
+		"data": {
+			"product": {
+				"variants": [
+					{"id": 1, "status": "not_marketable", "price": {"selling_price": 100}},
+					{"id": 2, "status": "marketable", "price": 200}
+				]
+			}
+		}
+	}`)
+
+	parsed, err := parseDigikalaPriceResponse(body)
+	if err != nil {
+		t.Fatalf("parseDigikalaPriceResponse() error = %v", err)
+	}
+	if parsed.PriceIRR != 200 {
+		t.Fatalf("PriceIRR = %d, want 200", parsed.PriceIRR)
+	}
+}
+
+func TestHasDigikalaFreshRedirect(t *testing.T) {
+	body := []byte(`{"status":302,"redirect_url":{"uri":"/fresh/product/dkp-856977/"}}`)
+	if !hasDigikalaFreshRedirect(body) {
+		t.Fatal("hasDigikalaFreshRedirect() = false, want true")
 	}
 }
 

@@ -30,6 +30,16 @@ func TestNormalizeCreateDefaultsDigikalaSourceName(t *testing.T) {
 	}
 }
 
+func TestNormalizeCreateAcceptsNumericDigikalaProductURL(t *testing.T) {
+	input, err := NormalizeCreate(CreateInput{URL: "https://www.digikala.com/product/20769143/"})
+	if err != nil {
+		t.Fatalf("NormalizeCreate() error = %v", err)
+	}
+	if input.SourceName != "digikala" {
+		t.Fatalf("SourceName = %q, want digikala", input.SourceName)
+	}
+}
+
 func TestNormalizeCreateRejectsUnsupportedSourceName(t *testing.T) {
 	_, err := NormalizeCreate(CreateInput{URL: "https://www.digikala.com/product/dkp-123456/", SourceName: "example"})
 	if err == nil {
